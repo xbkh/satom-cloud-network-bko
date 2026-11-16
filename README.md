@@ -63,11 +63,36 @@ La table de routage principale contient une seule entrée, `10.0.0.0/16 → loca
 
 ![Depuis app-01_bko, le ping vers 8.8.8.8 ne reçoit aucune réponse avant l’ajout du routage Internet.](modules/01-vpc/tp2/03-ping-app.png)
 
+## Module 1 — TP 3 · Plan d’adressage et chevauchement
+
+Le [template de test](cloudformation/01-tp3-chevauchement.json) tente de créer le bloc `10.0.1.128/25` dans le VPC de production depuis une stack dédiée. AWS renvoie `CREATE_FAILED` avec le motif « conflicts with another subnet ». Le bloc testé est inclus dans `10.0.1.0/24`.
+
+| Périmètre | Bloc IPv4 | Zone | Affectation |
+|---|---|---|---|
+| `vpc-prod-leman_bko` | `10.0.0.0/16` | Stockholm | Production |
+| `sub-public-1a_bko` | `10.0.1.0/24` | `eu-north-1a` | `web-01_bko` à `10.0.1.10` |
+| `sub-prive-1a_bko` | `10.0.2.0/24` | `eu-north-1a` | `app-01_bko` à `10.0.2.10` |
+| Sous-réseau données | `10.0.3.0/24` | `eu-north-1a` prévue | Réservé dans le plan |
+| VPC développement | `10.1.0.0/16` | Stockholm | Réservé pour le module 5 |
+
+Le sous-réseau privé offre **251 adresses attribuables**. Un `/24` contient 256 adresses, dont 5 sont réservées par AWS. La plage attribuable va de `10.0.2.4` à `10.0.2.254`. L’adresse de broadcast théorique est `10.0.2.255`, réservée par AWS. Le `/24` laisse de la place pour ajouter des instances et le plan garde des blocs distincts pour les autres usages du lab. Le plan est prêt pour la validation de l’Architecte réseau.
+
+**1.** Le terminal montre la tentative de déploiement et le motif du refus remonté par CloudFormation.
+
+![Test de chevauchement dans le terminal](modules/01-vpc/tp3/01-refus-cloudformation.png)
+
+**2.** L’onglet Events de CloudFormation affiche le refus de créer `SubnetChevauchant`.
+
+![Événement CREATE_FAILED dans la console AWS](modules/01-vpc/tp3/02-evenement-aws.jpg)
+
+**3.** Le terminal confirme que le VPC contient les deux sous-réseaux prévus.
+
+![Vérification des sous-réseaux](modules/01-vpc/tp3/03-sous-reseaux-conserves.png)
+
 ## Étapes suivantes
 
 | Étape | Changement à versionner | Preuve |
 |---|---|---|
-| Module 1, TP 3 | Définition temporaire du sous-réseau qui chevauche le réseau public | Refus AWS et plan d’adressage |
 | Module 2 | Passerelle Internet, NAT et tables de routage | Routes et tests de sortie avant retrait, pendant retrait et après rétablissement |
 | Module 3 | Groupes de sécurité et NACL | Tests HTTPS et 8080, tests de blocage et règles rétablies |
 | Module 4 | Network Firewall, routes symétriques et CloudWatch Logs | Pare-feu prêt, trafic autorisé et bloqué, journaux et nettoyage |
