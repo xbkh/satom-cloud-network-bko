@@ -89,11 +89,27 @@ Le sous-réseau privé offre **251 adresses attribuables**. Un `/24` contient 25
 
 ![Vérification des sous-réseaux](modules/01-vpc/tp3/03-sous-reseaux-conserves.png)
 
+## Module 2 — TP 1 · Routage public
+
+[Template CloudFormation](cloudformation/02-tp1-routage-public.json). La passerelle `igw-prod-leman_bko` est attachée au VPC de production. Une Elastic IP est associée à `web-01_bko`. Le test utilise EC2 Instance Connect avec une clé temporaire et un accès SSH limité à l’IPv4 du poste.
+
+**1.** Validation du template puis mise à jour de la stack CloudFormation.
+
+![Déploiement du routage public](modules/02-routage/tp1/01-deploiement.png)
+
+**2.** La console VPC affiche l’association de `rt-public-leman_bko` à `sub-public-1a_bko` et la route active `0.0.0.0/0` vers la passerelle Internet.
+
+![Route publique et association du sous-réseau](modules/02-routage/tp1/02-route-publique.jpg)
+
+**3.** Le poste rejoint `web-01_bko` en SSH via son IP publique. Depuis cette instance, le ping vers `8.8.8.8` reçoit quatre réponses sur quatre.
+
+![Accès SSH et ping sortant](modules/02-routage/tp1/03-test-web.png)
+
 ## Étapes suivantes
 
 | Étape | Changement à versionner | Preuve |
 |---|---|---|
-| Module 2 | Passerelle Internet, NAT et tables de routage | Routes et tests de sortie avant retrait, pendant retrait et après rétablissement |
+| Module 2, TP 2 et 3 | NAT et table de routage privée | Routes et tests de sortie avant retrait, pendant retrait et après rétablissement |
 | Module 3 | Groupes de sécurité et NACL | Tests HTTPS et 8080, tests de blocage et règles rétablies |
 | Module 4 | Network Firewall, routes symétriques et CloudWatch Logs | Pare-feu prêt, trafic autorisé et bloqué, journaux et nettoyage |
 
