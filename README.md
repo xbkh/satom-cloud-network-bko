@@ -8,15 +8,6 @@ Les noms de ressources prennent le suffixe `_bko`. Pour les services dont le nom
 
 Le [template](cloudformation/01-tp1-reseau.json) crée `vpc-prod-leman_bko` et les sous-réseaux `sub-public-1a_bko` et `sub-prive-1a_bko` en zone `eu-north-1a`. Il prend le nom de l'équipe en paramètre.
 
-```bash
-aws cloudformation deploy \
-  --region eu-north-1 \
-  --stack-name satom-leman-prod-bko \
-  --template-file cloudformation/01-tp1-reseau.json \
-  --parameter-overrides 'Equipe=NOM_DE_TON_EQUIPE' \
-  --tags Projet=SatomCloudNetwork 'Equipe=NOM_DE_TON_EQUIPE' Environnement=prod
-```
-
 **Déployé le 16 novembre 2026.** La stack `satom-leman-prod-bko` est en `CREATE_COMPLETE`. Le VPC `vpc-prod-leman_bko` utilise le CIDR `10.0.0.0/16` et les tags `Projet=SatomCloudNetwork`, `Equipe=bko` et `Environnement=prod`.
 
 | Sous-réseau | CIDR | Zone |
@@ -26,13 +17,19 @@ aws cloudformation deploy \
 
 La table de routage principale contient une seule entrée, `10.0.0.0/16 → local`.
 
-### Procédure et commandes exécutées
+### Commandes exécutées
 
-Le template a été validé avec `aws cloudformation validate-template`. La commande `aws cloudformation deploy` a ensuite créé la stack. Enfin, `describe-stacks`, `describe-vpcs`, `describe-subnets` et `describe-route-tables` ont vérifié les ressources et la route locale.
+```bash
+aws cloudformation validate-template --profile default --region eu-north-1 \
+    --template-body file://cloudformation/01-tp1-reseau.json \
+    --query 'Parameters[].ParameterKey' --output text
 
-L’image ci-dessous reconstitue le journal à partir des commandes réellement exécutées et des sorties conservées. [Journal texte des commandes et résultats](modules/01-vpc/preuves/00-journal-commandes.txt).
-
-![Reconstitution du terminal avec les commandes de validation et de déploiement](modules/01-vpc/preuves/00-journal-commandes.png)
+aws cloudformation deploy --profile default --region eu-north-1 \
+    --stack-name satom-leman-prod-bko \
+    --template-file cloudformation/01-tp1-reseau.json \
+    --parameter-overrides Equipe=bko \
+    --tags Projet=SatomCloudNetwork Equipe=bko Environnement=prod --no-cli-pager
+```
 
 ### Captures de la console AWS
 
