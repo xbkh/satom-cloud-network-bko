@@ -1,0 +1,139 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Satom Cloud Network - module 4, TP 1 - pare-feu hors chemin du trafic",
+  "Parameters": {
+    "VpcId": {
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "Equipe": {
+      "Type": "String",
+      "MinLength": 1
+    }
+  },
+  "Resources": {
+    "SubnetFirewall": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "CidrBlock": "10.0.4.0/28",
+        "AvailabilityZone": "eu-north-1a",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sub-fw-1a_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "Politique": {
+      "Type": "AWS::NetworkFirewall::FirewallPolicy",
+      "Properties": {
+        "FirewallPolicyName": "policy-prod-leman-bko",
+        "FirewallPolicy": {
+          "StatelessDefaultActions": [
+            "aws:forward_to_sfe"
+          ],
+          "StatelessFragmentDefaultActions": [
+            "aws:forward_to_sfe"
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "policy-prod-leman-bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "PareFeu": {
+      "Type": "AWS::NetworkFirewall::Firewall",
+      "Properties": {
+        "FirewallName": "nfw-prod-leman-bko",
+        "FirewallPolicyArn": {
+          "Ref": "Politique"
+        },
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "SubnetMappings": [
+          {
+            "SubnetId": {
+              "Ref": "SubnetFirewall"
+            }
+          }
+        ],
+        "DeleteProtection": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "nfw-prod-leman-bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "PareFeuArn": {
+      "Value": {
+        "Ref": "PareFeu"
+      }
+    },
+    "Endpoints": {
+      "Value": {
+        "Fn::Join": [
+          ",",
+          {
+            "Fn::GetAtt": [
+              "PareFeu",
+              "EndpointIds"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

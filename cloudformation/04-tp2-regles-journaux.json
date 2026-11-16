@@ -1,0 +1,290 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Satom Cloud Network - module 4, TP 2 - liste blanche et journaux CloudWatch",
+  "Parameters": {
+    "VpcId": {
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "Equipe": {
+      "Type": "String",
+      "MinLength": 1
+    },
+    "DomainesAutorises": {
+      "Type": "CommaDelimitedList",
+      "Description": "Domaines exacts ou suffixes avec point initial, approuves par le formateur"
+    }
+  },
+  "Resources": {
+    "SubnetFirewall": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "CidrBlock": "10.0.4.0/28",
+        "AvailabilityZone": "eu-north-1a",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sub-fw-1a_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "Politique": {
+      "Type": "AWS::NetworkFirewall::FirewallPolicy",
+      "Properties": {
+        "FirewallPolicyName": "policy-prod-leman-bko",
+        "FirewallPolicy": {
+          "StatelessDefaultActions": [
+            "aws:forward_to_sfe"
+          ],
+          "StatelessFragmentDefaultActions": [
+            "aws:forward_to_sfe"
+          ],
+          "StatefulEngineOptions": {
+            "RuleOrder": "STRICT_ORDER"
+          },
+          "StatefulDefaultActions": [
+            "aws:drop_established",
+            "aws:alert_established"
+          ],
+          "StatefulRuleGroupReferences": [
+            {
+              "ResourceArn": {
+                "Fn::GetAtt": [
+                  "ListeBlanche",
+                  "RuleGroupArn"
+                ]
+              },
+              "Priority": 10
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "policy-prod-leman-bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "PareFeu": {
+      "Type": "AWS::NetworkFirewall::Firewall",
+      "Properties": {
+        "FirewallName": "nfw-prod-leman-bko",
+        "FirewallPolicyArn": {
+          "Ref": "Politique"
+        },
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "SubnetMappings": [
+          {
+            "SubnetId": {
+              "Ref": "SubnetFirewall"
+            }
+          }
+        ],
+        "DeleteProtection": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "nfw-prod-leman-bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "ListeBlanche": {
+      "Type": "AWS::NetworkFirewall::RuleGroup",
+      "Properties": {
+        "RuleGroupName": "domaines-approuves-leman-bko",
+        "Type": "STATEFUL",
+        "Capacity": 100,
+        "RuleGroup": {
+          "StatefulRuleOptions": {
+            "RuleOrder": "STRICT_ORDER"
+          },
+          "RulesSource": {
+            "RulesSourceList": {
+              "GeneratedRulesType": "ALLOWLIST",
+              "Targets": {
+                "Ref": "DomainesAutorises"
+              },
+              "TargetTypes": [
+                "HTTP_HOST",
+                "TLS_SNI"
+              ]
+            }
+          }
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "domaines-approuves-leman-bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "Alertes": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/network-firewall/leman_bko/alertes",
+        "RetentionInDays": 7,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "/aws/network-firewall/leman_bko/alertes"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "Flux": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/network-firewall/leman_bko/flux",
+        "RetentionInDays": 7,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "/aws/network-firewall/leman_bko/flux"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "Journaux": {
+      "Type": "AWS::NetworkFirewall::LoggingConfiguration",
+      "Properties": {
+        "FirewallArn": {
+          "Ref": "PareFeu"
+        },
+        "LoggingConfiguration": {
+          "LogDestinationConfigs": [
+            {
+              "LogType": "ALERT",
+              "LogDestinationType": "CloudWatchLogs",
+              "LogDestination": {
+                "logGroup": {
+                  "Ref": "Alertes"
+                }
+              }
+            },
+            {
+              "LogType": "FLOW",
+              "LogDestinationType": "CloudWatchLogs",
+              "LogDestination": {
+                "logGroup": {
+                  "Ref": "Flux"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "PareFeuArn": {
+      "Value": {
+        "Ref": "PareFeu"
+      }
+    },
+    "Endpoints": {
+      "Value": {
+        "Fn::Join": [
+          ",",
+          {
+            "Fn::GetAtt": [
+              "PareFeu",
+              "EndpointIds"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

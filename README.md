@@ -283,10 +283,37 @@ flowchart LR
   WEB -->|TCP 8080 et SSH 22| APP[sg-app_bko / app-01_bko]
 ```
 
-## Étapes suivantes
+## Module 4 · Network Firewall
 
-| Étape | Changement à versionner | Preuve |
+**État du module · bloqué par la politique de l’organisation AWS.** Le compte de l’école refuse explicitement `network-firewall:CreateFirewallPolicy` à Stockholm. Le test a été fait dans la stack séparée `satom-leman-nfw-bko`, qui a terminé en `ROLLBACK_COMPLETE`. Aucun endpoint de pare-feu n’a été créé.
+
+### TP 1 · Tentative de déploiement
+
+Le [template CloudFormation](cloudformation/04-tp1-network-firewall.json) prévoit le sous-réseau dédié `sub-fw-1a_bko` (`10.0.4.0/28`), la politique et le pare-feu. Les identifiants de compte ont été masqués dans les captures du refus.
+
+**1.** Le terminal montre la validation CloudFormation, la tentative de déploiement et le refus de l’opération de création de politique.
+
+![Tentative de déploiement et refus AWS](modules/04-firewall/tp1/01-deploiement.png)
+
+**2.** La console CloudFormation montre la ressource Politique en CREATE_FAILED.
+
+![Refus dans les événements CloudFormation](modules/04-firewall/tp1/02-refus-console.jpg)
+
+**3.** Le retour arrière est terminé. Aucun sous-réseau `10.0.4.0/28` ne reste dans le VPC, et la route privée par défaut est toujours active vers le NAT du module 2.
+
+![Vérification du retour arrière et de la route](modules/04-firewall/tp1/03-retour-arriere.png)
+
+### TP 2 et TP 3 · Préparés, en attente d’un compte autorisé
+
+Le [template de filtrage et de journalisation](cloudformation/04-tp2-regles-journaux.json) prend les domaines approuvés en paramètre. Il prévoit la liste blanche HTTP et HTTPS et la livraison des alertes et flux dans CloudWatch Logs. Le [template de routage](cloudformation/04-tp3-routage-inspection.json) prend en paramètre le sous-réseau et l’endpoint du pare-feu. CloudFormation a validé les deux fichiers. Leur déploiement et les tests de trafic restent à réaliser.
+
+| Table | Destination | Cible prévue pendant le test |
 |---|---|---|
-| Module 4 | Network Firewall, routes symétriques et CloudWatch Logs | Pare-feu prêt, trafic autorisé et bloqué, journaux et nettoyage |
+| Privée applicative | `0.0.0.0/0` | Endpoint du pare-feu |
+| Sous-réseau du pare-feu | `0.0.0.0/0` | NAT d’inspection temporaire |
+| Sous-réseau du NAT d’inspection | `0.0.0.0/0` | Passerelle Internet |
+| Sous-réseau du NAT d’inspection | `10.0.2.0/24` | Même endpoint pour le retour |
 
-Les captures documentent les états déployés et les tests. Les modifications temporaires des routes et des règles passent aussi par CloudFormation.
+Le NAT d’inspection utilise le sous-réseau séparé `10.0.5.0/28`. Sa route retour permet de faire passer les deux sens par le même pare-feu sans modifier la table du serveur web. [Documentation AWS sur le retour symétrique](https://docs.aws.amazon.com/transform/latest/userguide/vpc-webapp-access.html).
+
+Pour reprendre le lab, faire autoriser Network Firewall par l’école, faire confirmer les domaines de mises à jour approuvés, puis redéployer la stack de test après suppression de la stack en rollback. Quand l’endpoint est prêt, appliquer le template de routage depuis la stack de production. Depuis `app-01_bko`, tester un dépôt approuvé puis un autre domaine, relever les résultats et les corréler aux journaux. Après les captures, réappliquer le template du module 3 avec ses paramètres de référence pour rétablir le NAT initial et retirer le NAT temporaire. Supprimer ensuite la stack du pare-feu.
