@@ -162,11 +162,131 @@ Le sous-réseau privé offre **251 adresses attribuables**. Un `/24` contient 25
 
 La procédure est prête pour la validation du responsable qualité.
 
+## Module 3 · Security Groups et NACL
+
+### TP 1 · Groupes de sécurité
+
+sg-web_bko autorise TCP 443 depuis Internet et TCP 22 depuis l’IPv4 du poste de test, utilisée pour représenter la salle Cornavin. sg-app_bko autorise TCP 22 et 8080 depuis sg-web_bko. L’application garde son IP privée 10.0.2.10. Le certificat de lab est vérifié avec curl.
+
+[Template CloudFormation](cloudformation/03-tp1-security-groups.json).
+
+**Validation et déploiement des groupes de sécurité par CloudFormation.**
+
+![Validation et déploiement des groupes de sécurité par CloudFormation.](modules/03-securite/tp1/01-deploiement.png)
+
+**Règles du groupe web dans la console EC2.**
+
+![Règles du groupe web dans la console EC2.](modules/03-securite/tp1/04-sg-web.jpg)
+
+**Règles du groupe applicatif avec le groupe web comme source.**
+
+![Règles du groupe applicatif avec le groupe web comme source.](modules/03-securite/tp1/05-sg-app.jpg)
+
+**Installation des deux services de démonstration avec le script versionné.**
+
+![Installation des deux services de démonstration avec le script versionné.](modules/03-securite/tp1/02-services.png)
+
+**Le HTTPS public répond et le serveur web atteint l’application sur le port 8080. L’instance applicative n’a pas d’IP publique.**
+
+![Le HTTPS public répond et le serveur web atteint l’application sur le port 8080. L’instance applicative n’a pas d’IP publique.](modules/03-securite/tp1/03-tests.png)
+
+### TP 2 · Retour de trafic et NACL
+
+Un groupe de sécurité mémorise les connexions autorisées. Une NACL évalue indépendamment les deux sens. Le test HTTPS est lancé depuis app-01_bko vers l’IP privée de web-01_bko pour tester la règle de retour sans utiliser l’exception de retour SSH du poste.
+
+[Template CloudFormation](cloudformation/03-tp2-tp3-nacl.json).
+
+**CloudFormation crée la NACL et l’associe au sous-réseau public.**
+
+![CloudFormation crée la NACL et l’associe au sous-réseau public.](modules/03-securite/tp2/01-nacl-deployee.png)
+
+**La règle entrante 100 autorise le port 443.**
+
+![La règle entrante 100 autorise le port 443.](modules/03-securite/tp2/06-nacl-entrante.jpg)
+
+**La règle sortante 100 autorise les ports de retour 1024 à 65535.**
+
+![La règle sortante 100 autorise les ports de retour 1024 à 65535.](modules/03-securite/tp2/07-nacl-sortante.jpg)
+
+**L’appel HTTPS aboutit avec les règles de référence.**
+
+![L’appel HTTPS aboutit avec les règles de référence.](modules/03-securite/tp2/02-https-autorise.png)
+
+**Le paramètre RetourHttps=non retire la règle sortante 100.**
+
+![Le paramètre RetourHttps=non retire la règle sortante 100.](modules/03-securite/tp2/03-retour-retire.png)
+
+**L’onglet sortant montre la NACL sans la règle 100.**
+
+![L’onglet sortant montre la NACL sans la règle 100.](modules/03-securite/tp2/08-nacl-retour-retire.jpg)
+
+**Le même appel HTTPS expire avec le code curl 28.**
+
+![Le même appel HTTPS expire avec le code curl 28.](modules/03-securite/tp2/04-https-bloque.png)
+
+**CloudFormation rétablit la règle de retour.**
+
+![CloudFormation rétablit la règle de retour.](modules/03-securite/tp2/05-retour-retabli.png)
+
+### TP 3 · Diagnostic d’un blocage
+
+Les règles NACL sont examinées par numéro croissant. La première règle qui correspond décide du sort du paquet. Le refus 90 prend donc effet avant l’autorisation 100.
+
+[Template CloudFormation](cloudformation/03-tp2-tp3-nacl.json).
+
+**CloudFormation retire l’autorisation 8080 de sg-app_bko.**
+
+![CloudFormation retire l’autorisation 8080 de sg-app_bko.](modules/03-securite/tp3/01-port-retire.png)
+
+**L’appel de web-01_bko vers app-01_bko:8080 expire.**
+
+![L’appel de web-01_bko vers app-01_bko:8080 expire.](modules/03-securite/tp3/02-app-bloquee.png)
+
+**CloudFormation rétablit le port applicatif et ajoute le refus HTTPS numéro 90.**
+
+![CloudFormation rétablit le port applicatif et ajoute le refus HTTPS numéro 90.](modules/03-securite/tp3/03-refus-prioritaire.png)
+
+**Dans la console, le refus HTTPS 90 apparaît avant l’autorisation 100.**
+
+![Dans la console, le refus HTTPS 90 apparaît avant l’autorisation 100.](modules/03-securite/tp3/08-console-priorite.jpg)
+
+**Le test HTTPS expire avec le refus prioritaire actif.**
+
+![Le test HTTPS expire avec le refus prioritaire actif.](modules/03-securite/tp3/04-https-bloque.png)
+
+**La configuration de référence est rétablie dans CloudFormation.**
+
+![La configuration de référence est rétablie dans CloudFormation.](modules/03-securite/tp3/05-regles-retablies.png)
+
+**Le serveur web atteint de nouveau l’application sur 8080.**
+
+![Le serveur web atteint de nouveau l’application sur 8080.](modules/03-securite/tp3/06-app-retablie.png)
+
+**L’appel HTTPS réussit de nouveau.**
+
+![L’appel HTTPS réussit de nouveau.](modules/03-securite/tp3/07-https-retabli.png)
+
+### Diagnostic
+
+1. Identifier le groupe attaché à l’interface de la cible.
+2. Vérifier le protocole, le port et la source autorisée dans les règles du groupe.
+3. Examiner les NACL des sous-réseaux traversés dans les deux sens. Comparer les numéros des règles et vérifier les ports de retour.
+4. Confirmer la route vers la destination, puis relancer le test applicatif.
+
+### Schéma du filtrage
+
+```mermaid
+flowchart LR
+  WAN[Internet] -->|HTTPS 443| ACL[NACL du sous-réseau public]
+  Ops[Poste de test] -->|SSH 22| ACL
+  ACL --> WEB[sg-web_bko / web-01_bko]
+  WEB -->|TCP 8080 et SSH 22| APP[sg-app_bko / app-01_bko]
+```
+
 ## Étapes suivantes
 
 | Étape | Changement à versionner | Preuve |
 |---|---|---|
-| Module 3 | Groupes de sécurité et NACL | Tests HTTPS et 8080, tests de blocage et règles rétablies |
 | Module 4 | Network Firewall, routes symétriques et CloudWatch Logs | Pare-feu prêt, trafic autorisé et bloqué, journaux et nettoyage |
 
 Les captures documentent les états déployés et les tests. Les modifications temporaires des routes et des règles passent aussi par CloudFormation.
