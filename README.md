@@ -105,11 +105,31 @@ Le sous-réseau privé offre **251 adresses attribuables**. Un `/24` contient 25
 
 ![Accès SSH et ping sortant](modules/02-routage/tp1/03-test-web.png)
 
+## Module 2 — TP 2 · Routage privé et NAT
+
+[Template CloudFormation](cloudformation/02-tp2-routage-prive.json). La NAT Gateway est dans le sous-réseau public. La table du sous-réseau privé envoie le trafic Internet vers cette passerelle. Le SSH de test vers app-01_bko est limité au groupe de sécurité de web-01_bko.
+
+**1.** Validation et déploiement CloudFormation du NAT et de la table privée.
+
+![Validation et déploiement CloudFormation du NAT et de la table privée.](modules/02-routage/tp2/01-deploiement.png)
+
+**2.** La console VPC confirme l’association à sub-prive-1a_bko et la route active 0.0.0.0/0 vers le NAT.
+
+![La console VPC confirme l’association à sub-prive-1a_bko et la route active 0.0.0.0/0 vers le NAT.](modules/02-routage/tp2/02-route-privee.jpg)
+
+**3.** Le test lancé sur app-01_bko via le relais SSH web-01_bko reçoit quatre réponses sur quatre depuis 8.8.8.8.
+
+![Le test lancé sur app-01_bko via le relais SSH web-01_bko reçoit quatre réponses sur quatre depuis 8.8.8.8.](modules/02-routage/tp2/03-ping-app.png)
+
+**4.** app-01_bko ne possède pas d’IP publique. Une tentative SSH depuis le poste vers l’IP publique du NAT expire.
+
+![app-01_bko ne possède pas d’IP publique. Une tentative SSH depuis le poste vers l’IP publique du NAT expire.](modules/02-routage/tp2/04-test-entrant.png)
+
 ## Étapes suivantes
 
 | Étape | Changement à versionner | Preuve |
 |---|---|---|
-| Module 2, TP 2 et 3 | NAT et table de routage privée | Routes et tests de sortie avant retrait, pendant retrait et après rétablissement |
+| Module 2, TP 3 | Retrait temporaire puis rétablissement de la route privée | Ping avant, pendant et après, et vérification des associations |
 | Module 3 | Groupes de sécurité et NACL | Tests HTTPS et 8080, tests de blocage et règles rétablies |
 | Module 4 | Network Firewall, routes symétriques et CloudWatch Logs | Pare-feu prêt, trafic autorisé et bloqué, journaux et nettoyage |
 
