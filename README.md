@@ -43,11 +43,31 @@ La table de routage principale contient une seule entrée, `10.0.0.0/16 → loca
 
 ![La table principale contient uniquement la route locale 10.0.0.0/16.](modules/01-vpc/preuves/04-route-locale.jpg)
 
+## Module 1 — TP 2 · Instances et connectivité
+
+[Template CloudFormation](cloudformation/01-tp2-instances.json). Les instances utilisent les adresses privées `10.0.1.10` et `10.0.2.10`. Le script de démarrage exécute les pings sur les instances et les sorties sont lues depuis la console série EC2.
+
+**1.** Validation du template et mise à jour de la stack pour ajouter les deux instances.
+
+![Validation du template et mise à jour de la stack pour ajouter les deux instances.](modules/01-vpc/tp2/01-cloudformation.png)
+
+**2.** La console EC2 montre web-01_bko et app-01_bko en cours d’exécution dans eu-north-1a.
+
+![La console EC2 montre web-01_bko et app-01_bko en cours d’exécution dans eu-north-1a.](modules/01-vpc/tp2/02-instances.jpg)
+
+**3.** Depuis web-01_bko, le ping vers 10.0.2.10 reçoit quatre réponses sur quatre.
+
+![Depuis web-01_bko, le ping vers 10.0.2.10 reçoit quatre réponses sur quatre.](modules/01-vpc/tp2/03-ping-web.png)
+
+**4.** Depuis app-01_bko, le ping vers 8.8.8.8 ne reçoit aucune réponse avant l’ajout du routage Internet.
+
+![Depuis app-01_bko, le ping vers 8.8.8.8 ne reçoit aucune réponse avant l’ajout du routage Internet.](modules/01-vpc/tp2/03-ping-app.png)
+
 ## Étapes suivantes
 
 | Étape | Changement à versionner | Preuve |
 |---|---|---|
-| Module 1, TP 2 et 3 | EC2 avec adresses privées fixes et définition temporaire du test de chevauchement | Ping interne, absence de sortie Internet, conflit CIDR |
+| Module 1, TP 3 | Définition temporaire du sous-réseau qui chevauche le réseau public | Refus AWS et plan d’adressage |
 | Module 2 | Passerelle Internet, NAT et tables de routage | Routes et tests de sortie avant retrait, pendant retrait et après rétablissement |
 | Module 3 | Groupes de sécurité et NACL | Tests HTTPS et 8080, tests de blocage et règles rétablies |
 | Module 4 | Network Firewall, routes symétriques et CloudWatch Logs | Pare-feu prêt, trafic autorisé et bloqué, journaux et nettoyage |

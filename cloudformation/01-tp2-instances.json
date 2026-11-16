@@ -1,0 +1,305 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Satom Cloud Network - module 1, TP 2 - instances et verification ICMP",
+  "Parameters": {
+    "Equipe": {
+      "Type": "String",
+      "MinLength": 1,
+      "MaxLength": 128,
+      "Description": "Nom de l equipe du cours"
+    },
+    "Ami": {
+      "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+      "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+    }
+  },
+  "Resources": {
+    "VpcProd": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/16",
+        "EnableDnsSupport": true,
+        "EnableDnsHostnames": true,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "vpc-prod-leman_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "SubnetPublic": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcProd"
+        },
+        "AvailabilityZone": "eu-north-1a",
+        "CidrBlock": "10.0.1.0/24",
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sub-public-1a_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "SubnetPrive": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcProd"
+        },
+        "AvailabilityZone": "eu-north-1a",
+        "CidrBlock": "10.0.2.0/24",
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sub-prive-1a_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "WebTestSg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Module 1 ICMP Web",
+        "VpcId": {
+          "Ref": "VpcProd"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sg-tp2-web_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "WebInstance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": "t3.micro",
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": "0",
+            "AssociatePublicIpAddress": false,
+            "SubnetId": {
+              "Ref": "SubnetPublic"
+            },
+            "PrivateIpAddress": "10.0.1.10",
+            "GroupSet": [
+              {
+                "Ref": "WebTestSg"
+              }
+            ]
+          }
+        ],
+        "MetadataOptions": {
+          "HttpTokens": "required"
+        },
+        "UserData": {
+          "Fn::Base64": "#!/bin/bash\nexec >/dev/console 2>&1\nfor attempt in {1..20}; do\n  if ping -c 1 -W 2 10.0.2.10 >/dev/null; then break; fi\n  sleep 5\ndone\necho '=== TP2 web-01_bko ==='\nset -x\nping -c 4 -W 2 10.0.2.10\nstatus=$?\nset +x\necho \"=== TP2 web-01_bko exit=$status ===\"\n"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "web-01_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ],
+        "PropagateTagsToVolumeOnCreation": true
+      }
+    },
+    "AppTestSg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Module 1 ICMP App",
+        "VpcId": {
+          "Ref": "VpcProd"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sg-tp2-app_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "icmp",
+            "FromPort": 8,
+            "ToPort": -1,
+            "SourceSecurityGroupId": {
+              "Ref": "WebTestSg"
+            }
+          }
+        ]
+      }
+    },
+    "AppInstance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": "t3.micro",
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": "0",
+            "AssociatePublicIpAddress": false,
+            "SubnetId": {
+              "Ref": "SubnetPrive"
+            },
+            "PrivateIpAddress": "10.0.2.10",
+            "GroupSet": [
+              {
+                "Ref": "AppTestSg"
+              }
+            ]
+          }
+        ],
+        "MetadataOptions": {
+          "HttpTokens": "required"
+        },
+        "UserData": {
+          "Fn::Base64": "#!/bin/bash\nexec >/dev/console 2>&1\necho '=== TP2 app-01_bko ==='\nset -x\nping -c 4 -W 2 8.8.8.8\nstatus=$?\nset +x\necho \"=== TP2 app-01_bko exit=$status ===\"\n"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "app-01_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ],
+        "PropagateTagsToVolumeOnCreation": true
+      }
+    }
+  },
+  "Outputs": {
+    "VpcProdId": {
+      "Value": {
+        "Ref": "VpcProd"
+      }
+    },
+    "SubnetPublicId": {
+      "Value": {
+        "Ref": "SubnetPublic"
+      }
+    },
+    "SubnetPriveId": {
+      "Value": {
+        "Ref": "SubnetPrive"
+      }
+    },
+    "WebInstanceId": {
+      "Value": {
+        "Ref": "WebInstance"
+      }
+    },
+    "AppInstanceId": {
+      "Value": {
+        "Ref": "AppInstance"
+      }
+    }
+  }
+}
