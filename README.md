@@ -17,33 +17,31 @@ Le [template](cloudformation/01-tp1-reseau.json) crée `vpc-prod-leman_bko` et l
 
 La table de routage principale contient une seule entrée, `10.0.0.0/16 → local`.
 
-### Commandes exécutées
+### Réalisation du TP 1 en captures
 
-```bash
-aws cloudformation validate-template --profile default --region eu-north-1 \
-    --template-body file://cloudformation/01-tp1-reseau.json \
-    --query 'Parameters[].ParameterKey' --output text
+**1.** CloudFormation valide le template à Stockholm et reconnaît le paramètre d’équipe.
 
-aws cloudformation deploy --profile default --region eu-north-1 \
-    --stack-name satom-leman-prod-bko \
-    --template-file cloudformation/01-tp1-reseau.json \
-    --parameter-overrides Equipe=bko \
-    --tags Projet=SatomCloudNetwork Equipe=bko Environnement=prod --no-cli-pager
-```
+![CloudFormation valide le template à Stockholm et reconnaît le paramètre d’équipe.](modules/01-vpc/preuves/terminal-validation.png)
 
-![Terminal AWS CLI — validation du template et vérification de la stack](modules/01-vpc/preuves/05-terminal.png)
+**2.** La commande de déploiement est relancée. CloudFormation confirme que la stack est déjà à jour.
 
-### Captures de la console AWS
+![La commande de déploiement est relancée. CloudFormation confirme que la stack est déjà à jour.](modules/01-vpc/preuves/terminal-deploiement.png)
 
-![Stack CloudFormation en CREATE_COMPLETE](modules/01-vpc/preuves/01-stack.jpg)
+**3.** La console CloudFormation affiche la stack en CREATE_COMPLETE.
 
-![VPC de production Léman](modules/01-vpc/preuves/02-vpc.jpg)
+![La console CloudFormation affiche la stack en CREATE_COMPLETE.](modules/01-vpc/preuves/01-stack.jpg)
 
-![Sous-réseaux public et privé](modules/01-vpc/preuves/03-sous-reseaux.jpg)
+**4.** La console VPC affiche le réseau de production vpc-prod-leman_bko.
 
-![Table principale et route locale](modules/01-vpc/preuves/04-route-locale.jpg)
+![La console VPC affiche le réseau de production vpc-prod-leman_bko.](modules/01-vpc/preuves/02-vpc.jpg)
 
-Les [résultats du terminal](modules/01-vpc/preuves/) complètent les captures.
+**5.** Les deux sous-réseaux sont disponibles avec leurs plages IP respectives.
+
+![Les deux sous-réseaux sont disponibles avec leurs plages IP respectives.](modules/01-vpc/preuves/03-sous-reseaux.jpg)
+
+**6.** La table principale contient uniquement la route locale 10.0.0.0/16.
+
+![La table principale contient uniquement la route locale 10.0.0.0/16.](modules/01-vpc/preuves/04-route-locale.jpg)
 
 ## Étapes suivantes
 
