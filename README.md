@@ -125,11 +125,47 @@ Le sous-réseau privé offre **251 adresses attribuables**. Un `/24` contient 25
 
 ![app-01_bko ne possède pas d’IP publique. Une tentative SSH depuis le poste vers l’IP publique du NAT expire.](modules/02-routage/tp2/04-test-entrant.png)
 
+## Module 2 — TP 3 · Diagnostic d’une route manquante
+
+[Template CloudFormation](cloudformation/02-tp2-routage-prive.json). Le paramètre RoutePriveeActive pilote la route privée. Le test du TP 2 sert de référence avant le retrait.
+
+**1.** CloudFormation retire temporairement la route par défaut avec RoutePriveeActive=non.
+
+![CloudFormation retire temporairement la route par défaut avec RoutePriveeActive=non.](modules/02-routage/tp3/01-route-retiree.png)
+
+**2.** La table privée reste liée à sub-prive-1a_bko et affiche uniquement la route locale.
+
+![La table privée reste liée à sub-prive-1a_bko et affiche uniquement la route locale.](modules/02-routage/tp3/05-console-route-retiree.jpg)
+
+**3.** Sans route par défaut, le ping depuis app-01_bko vers 8.8.8.8 perd les quatre paquets.
+
+![Sans route par défaut, le ping depuis app-01_bko vers 8.8.8.8 perd les quatre paquets.](modules/02-routage/tp3/02-ping-echec.png)
+
+**4.** CloudFormation recrée la route par défaut avec RoutePriveeActive=oui.
+
+![CloudFormation recrée la route par défaut avec RoutePriveeActive=oui.](modules/02-routage/tp3/03-route-retablie.png)
+
+**5.** La console affiche de nouveau la route par défaut active vers la NAT Gateway.
+
+![La console affiche de nouveau la route par défaut active vers la NAT Gateway.](modules/02-routage/tp3/06-console-route-retablie.jpg)
+
+**6.** Après rétablissement, app-01_bko reçoit quatre réponses sur quatre.
+
+![Après rétablissement, app-01_bko reçoit quatre réponses sur quatre.](modules/02-routage/tp3/04-ping-retabli.png)
+
+### Procédure de diagnostic
+
+1. Vérifier la table associée au sous-réseau. Le [sous-réseau public](modules/02-routage/tp1/02-route-publique.jpg) utilise `rt-public-leman_bko`. Le sous-réseau privé utilise `rt-prive-leman_bko`.
+2. Dans la table concernée, vérifier la présence de `0.0.0.0/0`.
+3. Vérifier que la route pointe vers la bonne cible. La table privée utilise le NAT et la table publique utilise la passerelle Internet.
+4. Confirmer que la route est active et que sa cible est disponible. Refaire le ping pour valider le rétablissement.
+
+La procédure est prête pour la validation du responsable qualité.
+
 ## Étapes suivantes
 
 | Étape | Changement à versionner | Preuve |
 |---|---|---|
-| Module 2, TP 3 | Retrait temporaire puis rétablissement de la route privée | Ping avant, pendant et après, et vérification des associations |
 | Module 3 | Groupes de sécurité et NACL | Tests HTTPS et 8080, tests de blocage et règles rétablies |
 | Module 4 | Network Firewall, routes symétriques et CloudWatch Logs | Pare-feu prêt, trafic autorisé et bloqué, journaux et nettoyage |
 
