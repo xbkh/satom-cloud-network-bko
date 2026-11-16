@@ -26,6 +26,14 @@ aws cloudformation deploy \
 
 La table de routage principale contient une seule entrée, `10.0.0.0/16 → local`.
 
+### Procédure et commandes exécutées
+
+Le template a été validé avec `aws cloudformation validate-template`. La commande `aws cloudformation deploy` a ensuite créé la stack. Enfin, `describe-stacks`, `describe-vpcs`, `describe-subnets` et `describe-route-tables` ont vérifié les ressources et la route locale.
+
+L’image ci-dessous reconstitue le journal à partir des commandes réellement exécutées et des sorties conservées. [Journal texte des commandes et résultats](modules/01-vpc/preuves/00-journal-commandes.txt).
+
+![Reconstitution du terminal avec les commandes de validation et de déploiement](modules/01-vpc/preuves/00-journal-commandes.png)
+
 ### Captures de la console AWS
 
 ![Stack CloudFormation en CREATE_COMPLETE](modules/01-vpc/preuves/01-stack.jpg)
