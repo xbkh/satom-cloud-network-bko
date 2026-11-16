@@ -31,6 +31,8 @@ aws cloudformation deploy --profile default --region eu-north-1 \
     --tags Projet=SatomCloudNetwork Equipe=bko Environnement=prod --no-cli-pager
 ```
 
+![Terminal AWS CLI — validation du template et vérification de la stack](modules/01-vpc/preuves/05-terminal.png)
+
 ### Captures de la console AWS
 
 ![Stack CloudFormation en CREATE_COMPLETE](modules/01-vpc/preuves/01-stack.jpg)
