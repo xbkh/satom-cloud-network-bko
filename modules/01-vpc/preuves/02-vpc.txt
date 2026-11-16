@@ -1,0 +1,36 @@
+[
+    {
+        "CIDR": "10.0.0.0/16",
+        "Etat": "available",
+        "Tags": [
+            {
+                "Key": "Projet",
+                "Value": "SatomCloudNetwork"
+            },
+            {
+                "Key": "Name",
+                "Value": "vpc-prod-leman_bko"
+            },
+            {
+                "Key": "Equipe",
+                "Value": "bko"
+            },
+            {
+                "Key": "aws:cloudformation:stack-id",
+                "Value": "arn:aws:cloudformation:eu-north-1:035946120558:stack/satom-leman-prod-bko/04720330-e19a-11f1-bcad-0affdc0bee4f"
+            },
+            {
+                "Key": "Environnement",
+                "Value": "prod"
+            },
+            {
+                "Key": "aws:cloudformation:logical-id",
+                "Value": "VpcProd"
+            },
+            {
+                "Key": "aws:cloudformation:stack-name",
+                "Value": "satom-leman-prod-bko"
+            }
+        ]
+    }
+]

@@ -1,0 +1,121 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Satom Cloud Network - module 1, TP 1 - reseau de production",
+  "Parameters": {
+    "Equipe": {
+      "Type": "String",
+      "MinLength": 1,
+      "MaxLength": 128,
+      "Description": "Nom de l equipe du cours"
+    }
+  },
+  "Resources": {
+    "VpcProd": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/16",
+        "EnableDnsSupport": true,
+        "EnableDnsHostnames": true,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "vpc-prod-leman_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "SubnetPublic": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcProd"
+        },
+        "AvailabilityZone": "eu-north-1a",
+        "CidrBlock": "10.0.1.0/24",
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sub-public-1a_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "SubnetPrive": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcProd"
+        },
+        "AvailabilityZone": "eu-north-1a",
+        "CidrBlock": "10.0.2.0/24",
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sub-prive-1a_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "VpcProdId": {
+      "Value": {
+        "Ref": "VpcProd"
+      }
+    },
+    "SubnetPublicId": {
+      "Value": {
+        "Ref": "SubnetPublic"
+      }
+    },
+    "SubnetPriveId": {
+      "Value": {
+        "Ref": "SubnetPrive"
+      }
+    }
+  }
+}
