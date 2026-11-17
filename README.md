@@ -472,9 +472,9 @@ Le [template de chevauchement](cloudformation/05-tp3-chevauchement.json) teste `
 
 ## Module 6 · Transit Gateway
 
-**Déploiement bloqué par la politique AWS de l’école à Stockholm.** CloudFormation a tenté de créer `tgw-leman_bko`. Le test EC2 en mode `--dry-run` confirme que la SCP `p-yxwnli3w` refuse explicitement `ec2:CreateTransitGateway` au rôle du compte de lab. Le peering `pcx-lab_bko` reste actif.
+**Déploiement et tests terminés à Stockholm.** Lors du premier essai, CloudFormation a tenté de créer `tgw-leman_bko`. Le test EC2 en mode `--dry-run` confirme que la SCP `p-yxwnli3w` refuse explicitement `ec2:CreateTransitGateway` au rôle du compte de lab. Le peering `pcx-lab_bko` est resté actif après le premier essai.
 
-### TP 1 · Tentative de création
+### Historique · Premier essai
 
 [Template CloudFormation](cloudformation/06-tp1-transit-gateway.json). Il définit le TGW avec l’ASN 64512, les associations et propagations par défaut désactivées et un attachement par VPC.
 
@@ -494,9 +494,9 @@ Le [template de chevauchement](cloudformation/05-tp3-chevauchement.json) teste `
 
 ![État de la stack, du TGW et du peering](modules/06-transit-gateway/tp1/04-etat-final.png)
 
-### TP 2 et TP 3 · Routage préparé
+### TP 2 et TP 3 · Routage et diagnostic
 
-Le [template de transition](cloudformation/06-transition-vpc-dev.json) retire le peering et ses deux routes après validation des attachements et conserve la règle TCP 8080 de l’application. Le [template du TGW](cloudformation/06-tp2-tp3-routes.json) ajoute les tables, les associations et la propagation croisée. Les fichiers passent la validation CloudFormation. Leur déploiement reste à faire.
+Le [template de transition](cloudformation/06-transition-vpc-dev.json) retire le peering et ses deux routes après validation des attachements et conserve la règle TCP 8080 de l’application. Le [template du TGW](cloudformation/06-tp2-tp3-routes.json) ajoute les tables, les associations et la propagation croisée. Les deux templates ont été déployés après le rétablissement des droits.
 
 | Table | Destination | Cible prévue |
 |---|---|---|
@@ -516,3 +516,47 @@ flowchart LR
 Après autorisation par l’école, déployer les attachements et vérifier leur état `available`. Appliquer ensuite la transition et déployer les routes TGW. Une fois `dev-01_bko` et `app-01_bko` démarrées, relever le résultat du curl depuis `dev-01_bko` sur la console série. Utiliser `RetourDev=non` pour retirer la propagation de retour, relever l’échec du curl, puis revenir à `RetourDev=oui` et confirmer le rétablissement.
 
 Pour diagnostiquer l’asymétrie, vérifier dans l’ordre l’association de chaque attachement, la route propagée dans la table TGW, la route correspondante dans la table VPC et le groupe de sécurité de l’application. [Référence AWS sur les associations et propagations](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ec2-transitgateway.html).
+
+### Réalisation après rétablissement des accès
+
+**CloudFormation crée la Transit Gateway avec l’association et la propagation par défaut désactivées.**
+
+![CloudFormation crée la Transit Gateway avec l’association et la propagation par défaut désactivées.](modules/06-transit-gateway/realisation/01-deploiement.png)
+
+**Les attachements dev et prod apparaissent en état Available dans la console.**
+
+![Les attachements dev et prod apparaissent en état Available dans la console.](modules/06-transit-gateway/realisation/01-console-attachements.jpg)
+
+**CloudFormation remplace le peering par la Transit Gateway et applique les routes VPC.**
+
+![CloudFormation remplace le peering par la Transit Gateway et applique les routes VPC.](modules/06-transit-gateway/realisation/02-migration.png)
+
+**Les deux tables de transit affichent les routes propagées actives.**
+
+![Les deux tables de transit affichent les routes propagées actives.](modules/06-transit-gateway/realisation/03-tables-tgw.png)
+
+**Après démarrage des instances, le curl depuis dev-01_bko reçoit la réponse d’app-01_bko sur TCP 8080.**
+
+![Après démarrage des instances, le curl depuis dev-01_bko reçoit la réponse d’app-01_bko sur TCP 8080.](modules/06-transit-gateway/realisation/04-curl-avant.png)
+
+**CloudFormation retire temporairement la propagation de retour vers le développement.**
+
+![CloudFormation retire temporairement la propagation de retour vers le développement.](modules/06-transit-gateway/realisation/05-retour-retire.png)
+
+**Le dernier curl expire avec le code 28 quand la route de retour disparaît.**
+
+![Le dernier curl expire avec le code 28 quand la route de retour disparaît.](modules/06-transit-gateway/realisation/06-curl-bloque.png)
+
+**CloudFormation rétablit la propagation de retour.**
+
+![CloudFormation rétablit la propagation de retour.](modules/06-transit-gateway/realisation/07-retour-retabli.png)
+
+**Le dernier curl réussit de nouveau avec le code 0.**
+
+![Le dernier curl réussit de nouveau avec le code 0.](modules/06-transit-gateway/realisation/08-curl-retabli.png)
+
+**Les trois instances EC2 du projet sont confirmées arrêtées.**
+
+![Les trois instances EC2 du projet sont confirmées arrêtées.](modules/06-transit-gateway/realisation/09-arret.png)
+
+Les deux attachements Transit Gateway restent disponibles pour le module 7. Ils sont facturés à l’heure même avec les EC2 arrêtées. [Tarification AWS Transit Gateway](https://aws.amazon.com/transit-gateway/pricing/).
