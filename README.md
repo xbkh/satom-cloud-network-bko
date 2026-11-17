@@ -320,14 +320,80 @@ Pour reprendre le lab, faire autoriser Network Firewall par l’école, faire co
 
 ## Module 5 · VPC Peering
 
-**État du module · préparé, déploiement en attente de reconnexion AWS.** Les deux templates ont été vérifiés localement. Le compte prévu est celui des modules 1 à 3, à Stockholm.
+**Réalisé sur le compte d’origine à Stockholm.** Le peering relie le VPC de développement `10.1.0.0/16` au VPC de production `10.0.0.0/16`. Le groupe de développement autorise la sortie TCP 8080 vers `10.0.2.10`. Le groupe applicatif autorise ce port depuis `10.1.0.0/16`.
 
-| TP | Infrastructure prévue | Preuves à capturer |
+| Table | Destination | Cible |
 |---|---|---|
-| 1 | [VPC de développement](cloudformation/05-tp1-vpc-dev.json) `10.1.0.0/16`, sous-réseau `10.1.1.0/24` et instance privée `dev-01_bko` à `10.1.1.10` | Déploiement CloudFormation, VPC, sous-réseau et instance dans la console AWS |
-| 2 | [Peering et routes](cloudformation/05-tp2-peering.json) entre développement et production, avec ouverture de TCP 8080 côté application | Peering actif, routes dans les deux sens, règle 8080 et résultat du curl lancé depuis l’instance dev |
-| 3 | Test de chevauchement et de non-transitivité | Refus AWS pour les plages qui se chevauchent, test de contrôle depuis la production et échec depuis le développement |
+| `rt-dev-leman_bko` | `10.0.0.0/16` | `pcx-lab_bko` |
+| `rt-prive-leman_bko` | `10.1.0.0/16` | `pcx-lab_bko` |
 
-Le template du TP 2 met à jour la stack de développement et reçoit les identifiants du VPC, de la table privée et du groupe de sécurité applicatif du compte d’origine. Dans l’instance de développement, le script de démarrage attend l’ouverture du peering avant de consigner le résultat du test HTTP sur la console série. La fenêtre de test commence au lancement de l’instance.
+```mermaid
+flowchart LR
+  DEV["VPC dev · 10.1.0.0/16<br/>dev-01_bko · 10.1.1.10"] -->|"① pcx-lab_bko · TCP 8080"| PROD["VPC prod · 10.0.0.0/16<br/>app-01_bko · 10.0.2.10"]
+```
 
-Pour le TP 3, le test de chevauchement doit relier les deux VPC qui ont effectivement des plages en commun. Pour tester la non-transitivité, utiliser un troisième VPC relié à la production et garder les contrôles de sécurité du test compatibles avec le port choisi, afin d’isoler l’effet du routage.
+### TP 1 · VPC de développement
+
+[Template CloudFormation](cloudformation/05-tp1-vpc-dev.json).
+
+**CloudFormation crée la stack de développement à Stockholm.**
+
+![CloudFormation crée la stack de développement à Stockholm.](modules/05-peering/tp1/01-deploiement.png)
+
+**Le VPC vpc-dev-leman_bko utilise le CIDR 10.1.0.0/16.**
+
+![Le VPC vpc-dev-leman_bko utilise le CIDR 10.1.0.0/16.](modules/05-peering/tp1/03-console-vpc.jpg)
+
+**Le sous-réseau sub-dev-1a_bko utilise 10.1.1.0/24.**
+
+![Le sous-réseau sub-dev-1a_bko utilise 10.1.1.0/24.](modules/05-peering/tp1/04-console-sous-reseau.jpg)
+
+**dev-01_bko tourne avec l’IP privée 10.1.1.10.**
+
+![dev-01_bko tourne avec l’IP privée 10.1.1.10.](modules/05-peering/tp1/02-console-instance.jpg)
+
+### TP 2 · Peering, routes et accès 8080
+
+[Template CloudFormation](cloudformation/05-tp2-peering.json).
+
+**CloudFormation met à jour la stack avec le peering, ses routes et l’autorisation TCP 8080.**
+
+![CloudFormation met à jour la stack avec le peering, ses routes et l’autorisation TCP 8080.](modules/05-peering/tp2/01-deploiement.png)
+
+**La console AWS affiche pcx-lab_bko avec le statut Active.**
+
+![La console AWS affiche pcx-lab_bko avec le statut Active.](modules/05-peering/tp2/02-console-peering.jpg)
+
+**Les routes vers la production et le développement sont actives. Le curl depuis dev-01_bko affiche la réponse du service app-01_bko.**
+
+![Les routes vers la production et le développement sont actives. Le curl depuis dev-01_bko affiche la réponse du service app-01_bko.](modules/05-peering/tp2/03-test-et-routes.png)
+
+### TP 3 · Chevauchement et non-transitivité
+
+[Template CloudFormation](cloudformation/05-tp3-non-transitivite.json).
+
+Le [template de chevauchement](cloudformation/05-tp3-chevauchement.json) teste `10.0.128.0/17` face à `10.0.0.0/16`. Le message EC2 est générique et cite notamment le chevauchement. Les deux plages du test se recouvrent effectivement. Pour le deuxième test, le VPC tiers `10.2.0.0/16` possède un peering avec la production. Les deux sondes disposent d’une autorisation TCP 8080 vers la cible et la sonde de développement tente de passer par le peering dev–prod.
+
+**EC2 indique que le peering de test est en état failed. CloudFormation confirme le rollback.**
+
+![EC2 indique que le peering de test est en état failed. CloudFormation confirme le rollback.](modules/05-peering/tp3/05-refus-verifie.png)
+
+**CloudFormation déploie le VPC tiers et les sondes isolées pour le test de non-transitivité.**
+
+![CloudFormation déploie le VPC tiers et les sondes isolées pour le test de non-transitivité.](modules/05-peering/tp3/02-topologie.png)
+
+**La console affiche les peerings dev–prod et prod–tiers actifs, ainsi que le peering de chevauchement en échec.**
+
+![La console affiche les peerings dev–prod et prod–tiers actifs, ainsi que le peering de chevauchement en échec.](modules/05-peering/tp3/04-console-topologie.jpg)
+
+**La sonde prod joint le service tiers. La sonde dev joint app-01_bko, puis son curl vers le tiers expire avec le code 28.**
+
+![La sonde prod joint le service tiers. La sonde dev joint app-01_bko, puis son curl vers le tiers expire avec le code 28.](modules/05-peering/tp3/03-resultats.png)
+
+**La stack de non-transitivité et ses ressources sont supprimées. Les routes du peering dev–prod restent actives.**
+
+![La stack de non-transitivité et ses ressources sont supprimées. Les routes du peering dev–prod restent actives.](modules/05-peering/tp3/06-nettoyage.png)
+
+**Les trois instances principales du lab sont arrêtées en fin de module.**
+
+![Les trois instances principales du lab sont arrêtées en fin de module.](modules/05-peering/tp3/07-arret-instances.png)

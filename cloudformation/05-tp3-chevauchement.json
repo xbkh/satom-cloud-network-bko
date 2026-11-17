@@ -1,0 +1,71 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Module 5 TP 3 - refus attendu d un peering avec CIDR chevauchant",
+  "Parameters": {
+    "VpcProd": {
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "Equipe": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "VpcChevauchant": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.128.0/17",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "vpc-test-chevauchement_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ]
+      }
+    },
+    "PeeringRefuse": {
+      "Type": "AWS::EC2::VPCPeeringConnection",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcChevauchant"
+        },
+        "PeerVpcId": {
+          "Ref": "VpcProd"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "pcx-test-chevauchement_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ]
+      }
+    }
+  }
+}

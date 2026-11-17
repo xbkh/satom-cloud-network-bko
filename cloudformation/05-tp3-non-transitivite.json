@@ -1,0 +1,492 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Module 5 TP 3 - preuve de non transitivite avec controle positif",
+  "Parameters": {
+    "VpcProd": {
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "VpcDev": {
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "SubnetProd": {
+      "Type": "AWS::EC2::Subnet::Id"
+    },
+    "SubnetDev": {
+      "Type": "AWS::EC2::Subnet::Id"
+    },
+    "TableProd": {
+      "Type": "String"
+    },
+    "TableDev": {
+      "Type": "String"
+    },
+    "PeeringDevProd": {
+      "Type": "String"
+    },
+    "Ami": {
+      "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+      "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+    }
+  },
+  "Resources": {
+    "VpcTiers": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.2.0.0/16",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "vpc-tiers-leman_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ]
+      }
+    },
+    "SubnetTiers": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcTiers"
+        },
+        "CidrBlock": "10.2.1.0/24",
+        "AvailabilityZone": "eu-north-1a",
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sub-tiers-1a_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ]
+      }
+    },
+    "TableTiers": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcTiers"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "rt-tiers-leman_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ]
+      }
+    },
+    "AssocTiers": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "SubnetTiers"
+        },
+        "RouteTableId": {
+          "Ref": "TableTiers"
+        }
+      }
+    },
+    "PeeringProdTiers": {
+      "Type": "AWS::EC2::VPCPeeringConnection",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcProd"
+        },
+        "PeerVpcId": {
+          "Ref": "VpcTiers"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "pcx-prod-tiers_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ]
+      }
+    },
+    "ProdVersTiers": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "TableProd"
+        },
+        "DestinationCidrBlock": "10.2.0.0/16",
+        "VpcPeeringConnectionId": {
+          "Ref": "PeeringProdTiers"
+        }
+      }
+    },
+    "TiersVersProd": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "TableTiers"
+        },
+        "DestinationCidrBlock": "10.0.0.0/16",
+        "VpcPeeringConnectionId": {
+          "Ref": "PeeringProdTiers"
+        }
+      }
+    },
+    "DevVersTiersViaProd": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "TableDev"
+        },
+        "DestinationCidrBlock": "10.2.0.0/16",
+        "VpcPeeringConnectionId": {
+          "Ref": "PeeringDevProd"
+        }
+      }
+    },
+    "TiersVersDevViaProd": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "TableTiers"
+        },
+        "DestinationCidrBlock": "10.1.0.0/16",
+        "VpcPeeringConnectionId": {
+          "Ref": "PeeringProdTiers"
+        }
+      }
+    },
+    "GroupeTiers": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcTiers"
+        },
+        "GroupDescription": "HTTP de test depuis les deux sondes",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 8080,
+            "ToPort": 8080,
+            "CidrIp": "10.0.2.11/32"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 8080,
+            "ToPort": 8080,
+            "CidrIp": "10.1.1.11/32"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sg-tiers_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ]
+      }
+    },
+    "GroupeSondeProd": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcProd"
+        },
+        "GroupDescription": "Sortie HTTP vers tiers",
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 8080,
+            "ToPort": 8080,
+            "CidrIp": "10.2.1.10/32"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sg-sonde-prod_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ]
+      }
+    },
+    "GroupeSondeDev": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcDev"
+        },
+        "GroupDescription": "Sortie HTTP vers prod et tiers",
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 8080,
+            "ToPort": 8080,
+            "CidrIp": "10.0.2.10/32"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 8080,
+            "ToPort": 8080,
+            "CidrIp": "10.2.1.10/32"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sg-sonde-dev_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ]
+      }
+    },
+    "InstanceTiers": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": "t3.micro",
+        "MetadataOptions": {
+          "HttpTokens": "required"
+        },
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": "0",
+            "SubnetId": {
+              "Ref": "SubnetTiers"
+            },
+            "GroupSet": [
+              {
+                "Ref": "GroupeTiers"
+              }
+            ],
+            "PrivateIpAddress": "10.2.1.10",
+            "AssociatePublicIpAddress": false
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": "#!/bin/bash\ninstall -d /var/www/tiers\nprintf 'tiers-01_bko - controle TCP 8080\\n' >/var/www/tiers/index.html\nexec /usr/bin/python3 -m http.server 8080 --directory /var/www/tiers\n"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "tiers-01_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ],
+        "PropagateTagsToVolumeOnCreation": true
+      }
+    },
+    "SondeProd": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": "t3.micro",
+        "MetadataOptions": {
+          "HttpTokens": "required"
+        },
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": "0",
+            "SubnetId": {
+              "Ref": "SubnetProd"
+            },
+            "GroupSet": [
+              {
+                "Ref": "GroupeSondeProd"
+              }
+            ],
+            "PrivateIpAddress": "10.0.2.11",
+            "AssociatePublicIpAddress": false
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": "#!/bin/bash\nexec >/dev/console 2>&1\necho '=== TP3 controle PROD ==='\nset -x\ncurl --retry 12 --retry-all-errors --retry-delay 2 -fsS --max-time 4 http://10.2.1.10:8080/\nstatus=$?\nset +x\necho \"=== TP3 PROD curl=$status ===\"\n"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sonde-prod_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ],
+        "PropagateTagsToVolumeOnCreation": true
+      },
+      "DependsOn": [
+        "AssocTiers",
+        "ProdVersTiers",
+        "TiersVersProd",
+        "InstanceTiers"
+      ]
+    },
+    "SondeDev": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": "t3.micro",
+        "MetadataOptions": {
+          "HttpTokens": "required"
+        },
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": "0",
+            "SubnetId": {
+              "Ref": "SubnetDev"
+            },
+            "GroupSet": [
+              {
+                "Ref": "GroupeSondeDev"
+              }
+            ],
+            "PrivateIpAddress": "10.1.1.11",
+            "AssociatePublicIpAddress": false
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": "#!/bin/bash\nexec >/dev/console 2>&1\necho '=== TP3 controle DEV ==='\nset -x\ncurl -fsS --max-time 5 http://10.0.2.10:8080/\nprod=$?\ncurl -fsS --max-time 6 http://10.2.1.10:8080/\ntiers=$?\nset +x\necho \"=== TP3 DEV prod=$prod tiers=$tiers ===\"\n"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sonde-dev_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "test"
+          }
+        ],
+        "PropagateTagsToVolumeOnCreation": true
+      },
+      "DependsOn": [
+        "DevVersTiersViaProd",
+        "TiersVersDevViaProd",
+        "InstanceTiers"
+      ]
+    }
+  },
+  "Outputs": {
+    "PeeringProdTiersId": {
+      "Value": {
+        "Ref": "PeeringProdTiers"
+      }
+    },
+    "SondeProdId": {
+      "Value": {
+        "Ref": "SondeProd"
+      }
+    },
+    "SondeDevId": {
+      "Value": {
+        "Ref": "SondeDev"
+      }
+    }
+  }
+}
