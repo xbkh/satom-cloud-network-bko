@@ -397,3 +397,50 @@ Le [template de chevauchement](cloudformation/05-tp3-chevauchement.json) teste `
 **Les trois instances principales du lab sont arrêtées en fin de module.**
 
 ![Les trois instances principales du lab sont arrêtées en fin de module.](modules/05-peering/tp3/07-arret-instances.png)
+
+## Module 6 · Transit Gateway
+
+**Déploiement bloqué par la politique AWS de l’école à Stockholm.** CloudFormation a tenté de créer `tgw-leman_bko`. Le test EC2 en mode `--dry-run` confirme que la SCP `p-yxwnli3w` refuse explicitement `ec2:CreateTransitGateway` au rôle du compte de lab. Le peering `pcx-lab_bko` reste actif.
+
+### TP 1 · Tentative de création
+
+[Template CloudFormation](cloudformation/06-tp1-transit-gateway.json). Il définit le TGW avec l’ASN 64512, les associations et propagations par défaut désactivées et un attachement par VPC.
+
+**Tentative de déploiement.** Le terminal montre la commande CloudFormation et son échec.
+
+![Tentative de déploiement du TGW](modules/06-transit-gateway/tp1/01-deploiement.png)
+
+**Contrôle d’autorisation.** EC2 identifie l’action refusée et la politique de l’organisation.
+
+![Refus explicite de CreateTransitGateway dans le terminal](modules/06-transit-gateway/tp1/02-dry-run.png)
+
+**Console AWS.** CloudFormation affiche le refus de création de la ressource TGW.
+
+![Événement CREATE_FAILED dans CloudFormation](modules/06-transit-gateway/tp1/03-refus-console.jpg)
+
+**État des ressources.** CloudFormation confirme ROLLBACK_COMPLETE. Aucun TGW de ce module n’est présent, et le peering existant reste actif.
+
+![État de la stack, du TGW et du peering](modules/06-transit-gateway/tp1/04-etat-final.png)
+
+### TP 2 et TP 3 · Routage préparé
+
+Le [template de transition](cloudformation/06-transition-vpc-dev.json) retire le peering et ses deux routes après validation des attachements et conserve la règle TCP 8080 de l’application. Le [template du TGW](cloudformation/06-tp2-tp3-routes.json) ajoute les tables, les associations et la propagation croisée. Les fichiers passent la validation CloudFormation. Leur déploiement reste à faire.
+
+| Table | Destination | Cible prévue |
+|---|---|---|
+| VPC production · `rt-prive-leman_bko` | `10.1.0.0/16` | `tgw-leman_bko` |
+| VPC développement · `rt-dev-leman_bko` | `10.0.0.0/16` | `tgw-leman_bko` |
+| TGW · `tgw-rt-prod_bko` | `10.1.0.0/16` | Propagation de `tgwa-dev_bko` |
+| TGW · `tgw-rt-dev_bko` | `10.0.0.0/16` | Propagation de `tgwa-prod_bko` |
+
+```mermaid
+flowchart LR
+  DEV["VPC dev · 10.1.0.0/16<br/>dev-01_bko · 10.1.1.10"] <-->|"① tgwa-dev_bko"| TGW["tgw-leman_bko<br/>tgw-rt-dev · tgw-rt-prod"]
+  TGW <-->|"② tgwa-prod_bko"| PROD["VPC prod · 10.0.0.0/16<br/>app-01_bko · 10.0.2.10"]
+  DEV -. "③ TCP 8080" .-> PROD
+  HQ["Cornavin · 192.168.10.0/24<br/>Raccordement au module 7"]
+```
+
+Après autorisation par l’école, déployer les attachements et vérifier leur état `available`. Appliquer ensuite la transition et déployer les routes TGW. Une fois `dev-01_bko` et `app-01_bko` démarrées, relever le résultat du curl depuis `dev-01_bko` sur la console série. Utiliser `RetourDev=non` pour retirer la propagation de retour, relever l’échec du curl, puis revenir à `RetourDev=oui` et confirmer le rétablissement.
+
+Pour diagnostiquer l’asymétrie, vérifier dans l’ordre l’association de chaque attachement, la route propagée dans la table TGW, la route correspondante dans la table VPC et le groupe de sécurité de l’application. [Référence AWS sur les associations et propagations](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ec2-transitgateway.html).

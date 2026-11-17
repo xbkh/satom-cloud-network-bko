@@ -1,0 +1,313 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Module 6, TP 2 et 3 - tables, propagation et retour conditionnel",
+  "Parameters": {
+    "Equipe": {
+      "Type": "String",
+      "MinLength": 1
+    },
+    "VpcProd": {
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "SubnetProd": {
+      "Type": "AWS::EC2::Subnet::Id"
+    },
+    "VpcDev": {
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "SubnetDev": {
+      "Type": "AWS::EC2::Subnet::Id"
+    },
+    "TableProd": {
+      "Type": "String",
+      "AllowedPattern": "rtb-[0-9a-f]+"
+    },
+    "TableDev": {
+      "Type": "String",
+      "AllowedPattern": "rtb-[0-9a-f]+"
+    },
+    "RetourDev": {
+      "Type": "String",
+      "Default": "oui",
+      "AllowedValues": [
+        "oui",
+        "non"
+      ]
+    }
+  },
+  "Resources": {
+    "Tgw": {
+      "Type": "AWS::EC2::TransitGateway",
+      "Properties": {
+        "AmazonSideAsn": 64512,
+        "DefaultRouteTableAssociation": "disable",
+        "DefaultRouteTablePropagation": "disable",
+        "AutoAcceptSharedAttachments": "disable",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "tgw-leman_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "lab"
+          }
+        ]
+      }
+    },
+    "AttProd": {
+      "Type": "AWS::EC2::TransitGatewayAttachment",
+      "Properties": {
+        "TransitGatewayId": {
+          "Ref": "Tgw"
+        },
+        "VpcId": {
+          "Ref": "VpcProd"
+        },
+        "SubnetIds": [
+          {
+            "Ref": "SubnetProd"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "tgwa-prod_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "lab"
+          }
+        ]
+      }
+    },
+    "AttDev": {
+      "Type": "AWS::EC2::TransitGatewayAttachment",
+      "Properties": {
+        "TransitGatewayId": {
+          "Ref": "Tgw"
+        },
+        "VpcId": {
+          "Ref": "VpcDev"
+        },
+        "SubnetIds": [
+          {
+            "Ref": "SubnetDev"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "tgwa-dev_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "lab"
+          }
+        ]
+      }
+    },
+    "TgwTableProd": {
+      "Type": "AWS::EC2::TransitGatewayRouteTable",
+      "Properties": {
+        "TransitGatewayId": {
+          "Ref": "Tgw"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "tgw-rt-prod_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "lab"
+          }
+        ]
+      }
+    },
+    "TgwAssocProd": {
+      "Type": "AWS::EC2::TransitGatewayRouteTableAssociation",
+      "Properties": {
+        "TransitGatewayAttachmentId": {
+          "Ref": "AttProd"
+        },
+        "TransitGatewayRouteTableId": {
+          "Ref": "TgwTableProd"
+        }
+      }
+    },
+    "PropagationVersProd": {
+      "Type": "AWS::EC2::TransitGatewayRouteTablePropagation",
+      "Properties": {
+        "TransitGatewayAttachmentId": {
+          "Ref": "AttDev"
+        },
+        "TransitGatewayRouteTableId": {
+          "Ref": "TgwTableProd"
+        }
+      },
+      "Condition": "AvecRetourDev"
+    },
+    "VpcRouteProd": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "TableProd"
+        },
+        "DestinationCidrBlock": "10.1.0.0/16",
+        "TransitGatewayId": {
+          "Ref": "Tgw"
+        }
+      },
+      "DependsOn": [
+        "AttProd",
+        "TgwAssocProd",
+        "PropagationVersDev"
+      ]
+    },
+    "TgwTableDev": {
+      "Type": "AWS::EC2::TransitGatewayRouteTable",
+      "Properties": {
+        "TransitGatewayId": {
+          "Ref": "Tgw"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "tgw-rt-dev_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "lab"
+          }
+        ]
+      }
+    },
+    "TgwAssocDev": {
+      "Type": "AWS::EC2::TransitGatewayRouteTableAssociation",
+      "Properties": {
+        "TransitGatewayAttachmentId": {
+          "Ref": "AttDev"
+        },
+        "TransitGatewayRouteTableId": {
+          "Ref": "TgwTableDev"
+        }
+      }
+    },
+    "PropagationVersDev": {
+      "Type": "AWS::EC2::TransitGatewayRouteTablePropagation",
+      "Properties": {
+        "TransitGatewayAttachmentId": {
+          "Ref": "AttProd"
+        },
+        "TransitGatewayRouteTableId": {
+          "Ref": "TgwTableDev"
+        }
+      }
+    },
+    "VpcRouteDev": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "TableDev"
+        },
+        "DestinationCidrBlock": "10.0.0.0/16",
+        "TransitGatewayId": {
+          "Ref": "Tgw"
+        }
+      },
+      "DependsOn": [
+        "AttDev",
+        "TgwAssocDev",
+        "PropagationVersDev"
+      ]
+    }
+  },
+  "Outputs": {
+    "TgwId": {
+      "Value": {
+        "Ref": "Tgw"
+      }
+    },
+    "AttProdId": {
+      "Value": {
+        "Ref": "AttProd"
+      }
+    },
+    "AttDevId": {
+      "Value": {
+        "Ref": "AttDev"
+      }
+    },
+    "TgwTableProdId": {
+      "Value": {
+        "Ref": "TgwTableProd"
+      }
+    },
+    "TgwTableDevId": {
+      "Value": {
+        "Ref": "TgwTableDev"
+      }
+    }
+  },
+  "Conditions": {
+    "AvecRetourDev": {
+      "Fn::Equals": [
+        {
+          "Ref": "RetourDev"
+        },
+        "oui"
+      ]
+    }
+  }
+}
