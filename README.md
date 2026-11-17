@@ -317,3 +317,17 @@ Le [template de filtrage et de journalisation](cloudformation/04-tp2-regles-jour
 Le NAT d’inspection utilise le sous-réseau séparé `10.0.5.0/28`. Sa route retour permet de faire passer les deux sens par le même pare-feu sans modifier la table du serveur web. [Documentation AWS sur le retour symétrique](https://docs.aws.amazon.com/transform/latest/userguide/vpc-webapp-access.html).
 
 Pour reprendre le lab, faire autoriser Network Firewall par l’école, faire confirmer les domaines de mises à jour approuvés, puis redéployer la stack de test après suppression de la stack en rollback. Quand l’endpoint est prêt, appliquer le template de routage depuis la stack de production. Depuis `app-01_bko`, tester un dépôt approuvé puis un autre domaine, relever les résultats et les corréler aux journaux. Après les captures, réappliquer le template du module 3 avec ses paramètres de référence pour rétablir le NAT initial et retirer le NAT temporaire. Supprimer ensuite la stack du pare-feu.
+
+## Module 5 · VPC Peering
+
+**État du module · préparé, déploiement en attente de reconnexion AWS.** Les deux templates ont été vérifiés localement. Le compte prévu est celui des modules 1 à 3, à Stockholm.
+
+| TP | Infrastructure prévue | Preuves à capturer |
+|---|---|---|
+| 1 | [VPC de développement](cloudformation/05-tp1-vpc-dev.json) `10.1.0.0/16`, sous-réseau `10.1.1.0/24` et instance privée `dev-01_bko` à `10.1.1.10` | Déploiement CloudFormation, VPC, sous-réseau et instance dans la console AWS |
+| 2 | [Peering et routes](cloudformation/05-tp2-peering.json) entre développement et production, avec ouverture de TCP 8080 côté application | Peering actif, routes dans les deux sens, règle 8080 et résultat du curl lancé depuis l’instance dev |
+| 3 | Test de chevauchement et de non-transitivité | Refus AWS pour les plages qui se chevauchent, test de contrôle depuis la production et échec depuis le développement |
+
+Le template du TP 2 met à jour la stack de développement et reçoit les identifiants du VPC, de la table privée et du groupe de sécurité applicatif du compte d’origine. Dans l’instance de développement, le script de démarrage attend l’ouverture du peering avant de consigner le résultat du test HTTP sur la console série. La fenêtre de test commence au lancement de l’instance.
+
+Pour le TP 3, le test de chevauchement doit relier les deux VPC qui ont effectivement des plages en commun. Pour tester la non-transitivité, utiliser un troisième VPC relié à la production et garder les contrôles de sécurité du test compatibles avec le port choisi, afin d’isoler l’effet du routage.

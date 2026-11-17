@@ -1,0 +1,307 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Satom Cloud Network - module 5, TP 2 - peering local et flux 8080",
+  "Parameters": {
+    "Equipe": {
+      "Type": "String",
+      "MinLength": 1
+    },
+    "Ami": {
+      "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+      "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+    },
+    "VpcProd": {
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "TableApp": {
+      "Type": "String",
+      "AllowedPattern": "rtb-[0-9a-f]+"
+    },
+    "GroupeApp": {
+      "Type": "AWS::EC2::SecurityGroup::Id"
+    }
+  },
+  "Resources": {
+    "VpcDev": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.1.0.0/16",
+        "EnableDnsSupport": true,
+        "EnableDnsHostnames": true,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "vpc-dev-leman_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "dev"
+          }
+        ]
+      }
+    },
+    "SubnetDev": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcDev"
+        },
+        "CidrBlock": "10.1.1.0/24",
+        "AvailabilityZone": "eu-north-1a",
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sub-dev-1a_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "dev"
+          }
+        ]
+      }
+    },
+    "TableDev": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcDev"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "rt-dev-leman_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "dev"
+          }
+        ]
+      }
+    },
+    "AssociationDev": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "SubnetDev"
+        },
+        "RouteTableId": {
+          "Ref": "TableDev"
+        }
+      }
+    },
+    "GroupeDev": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcDev"
+        },
+        "GroupDescription": "Sortie applicative du lab vers app-01",
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 8080,
+            "ToPort": 8080,
+            "CidrIp": "10.0.2.10/32"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sg-dev-leman_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "dev"
+          }
+        ]
+      }
+    },
+    "InstanceDev": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": "t3.micro",
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": "0",
+            "AssociatePublicIpAddress": false,
+            "SubnetId": {
+              "Ref": "SubnetDev"
+            },
+            "PrivateIpAddress": "10.1.1.10",
+            "GroupSet": [
+              {
+                "Ref": "GroupeDev"
+              }
+            ]
+          }
+        ],
+        "MetadataOptions": {
+          "HttpTokens": "required"
+        },
+        "UserData": {
+          "Fn::Base64": "#!/bin/bash\nexec >/dev/console 2>&1\necho '=== Module 5 - dev-01_bko - 10.1.1.10 ==='\n# Attendre que CloudFormation termine le TP 2 avant de conclure au succ\u00e8s.\nfor attempt in {1..240}; do\n  if response=$(curl --noproxy '*' -fsS --max-time 3 http://10.0.2.10:8080/ 2>/dev/null); then\n    echo '+ curl -fsS --max-time 3 http://10.0.2.10:8080/'\n    printf '%s\\n' \"$response\"\n    echo '=== Module 5 - connexion 8080 reussie ==='\n    exit 0\n  fi\n  sleep 5\ndone\necho '=== Module 5 - aucun succes 8080 pendant la fenetre de test ==='\n"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "dev-01_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "dev"
+          }
+        ],
+        "PropagateTagsToVolumeOnCreation": true
+      }
+    },
+    "Peering": {
+      "Type": "AWS::EC2::VPCPeeringConnection",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcDev"
+        },
+        "PeerVpcId": {
+          "Ref": "VpcProd"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "pcx-lab_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "dev"
+          }
+        ]
+      }
+    },
+    "RouteVersProd": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "TableDev"
+        },
+        "DestinationCidrBlock": "10.0.0.0/16",
+        "VpcPeeringConnectionId": {
+          "Ref": "Peering"
+        }
+      }
+    },
+    "RouteVersDev": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "TableApp"
+        },
+        "DestinationCidrBlock": "10.1.0.0/16",
+        "VpcPeeringConnectionId": {
+          "Ref": "Peering"
+        }
+      }
+    },
+    "AppDepuisDev": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "GroupeApp"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8080,
+        "ToPort": 8080,
+        "CidrIp": "10.1.0.0/16",
+        "Description": "TP peering developpement"
+      }
+    }
+  },
+  "Outputs": {
+    "VpcDevId": {
+      "Value": {
+        "Ref": "VpcDev"
+      }
+    },
+    "SubnetDevId": {
+      "Value": {
+        "Ref": "SubnetDev"
+      }
+    },
+    "TableDevId": {
+      "Value": {
+        "Ref": "TableDev"
+      }
+    },
+    "InstanceDevId": {
+      "Value": {
+        "Ref": "InstanceDev"
+      }
+    },
+    "PeeringId": {
+      "Value": {
+        "Ref": "Peering"
+      }
+    }
+  }
+}
