@@ -1,0 +1,234 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Module 4 TP 2 - endpoint et journalisation CloudWatch",
+  "Parameters": {
+    "VpcId": {
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "Equipe": {
+      "Type": "String",
+      "MinLength": 1
+    },
+    "PolicyArn": {
+      "Type": "String",
+      "AllowedPattern": "arn:aws:network-firewall:eu-north-1:[0-9]{12}:firewall-policy/.+"
+    },
+    "JournalFlux": {
+      "Type": "String",
+      "AllowedValues": [
+        "oui",
+        "non"
+      ],
+      "Default": "non"
+    }
+  },
+  "Resources": {
+    "SubnetFirewall": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "CidrBlock": "10.0.4.0/28",
+        "AvailabilityZone": "eu-north-1a",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "sub-fw-1a_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "PareFeu": {
+      "Type": "AWS::NetworkFirewall::Firewall",
+      "Properties": {
+        "FirewallName": "nfw-prod-leman-bko",
+        "FirewallPolicyArn": {
+          "Ref": "PolicyArn"
+        },
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "SubnetMappings": [
+          {
+            "SubnetId": {
+              "Ref": "SubnetFirewall"
+            }
+          }
+        ],
+        "DeleteProtection": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "nfw-prod-leman-bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "Alertes": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/network-firewall/leman_bko/alertes",
+        "RetentionInDays": 7,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "/aws/network-firewall/leman_bko/alertes"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "Flux": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/network-firewall/leman_bko/flux",
+        "RetentionInDays": 7,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "/aws/network-firewall/leman_bko/flux"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "Journaux": {
+      "Type": "AWS::NetworkFirewall::LoggingConfiguration",
+      "Properties": {
+        "FirewallArn": {
+          "Ref": "PareFeu"
+        },
+        "LoggingConfiguration": {
+          "LogDestinationConfigs": [
+            {
+              "LogType": "ALERT",
+              "LogDestinationType": "CloudWatchLogs",
+              "LogDestination": {
+                "logGroup": {
+                  "Ref": "Alertes"
+                }
+              }
+            },
+            {
+              "Fn::If": [
+                "AvecFlux",
+                {
+                  "LogType": "FLOW",
+                  "LogDestinationType": "CloudWatchLogs",
+                  "LogDestination": {
+                    "logGroup": {
+                      "Ref": "Flux"
+                    }
+                  }
+                },
+                {
+                  "Ref": "AWS::NoValue"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "PareFeuArn": {
+      "Value": {
+        "Ref": "PareFeu"
+      }
+    },
+    "Endpoints": {
+      "Value": {
+        "Fn::Join": [
+          ",",
+          {
+            "Fn::GetAtt": [
+              "PareFeu",
+              "EndpointIds"
+            ]
+          }
+        ]
+      }
+    },
+    "SubnetFirewallId": {
+      "Value": {
+        "Ref": "SubnetFirewall"
+      }
+    },
+    "AlertesNom": {
+      "Value": {
+        "Ref": "Alertes"
+      }
+    },
+    "FluxNom": {
+      "Value": {
+        "Ref": "Flux"
+      }
+    }
+  },
+  "Conditions": {
+    "AvecFlux": {
+      "Fn::Equals": [
+        {
+          "Ref": "JournalFlux"
+        },
+        "oui"
+      ]
+    }
+  }
+}

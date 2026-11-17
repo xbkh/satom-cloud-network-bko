@@ -285,7 +285,7 @@ flowchart LR
 
 ## Module 4 · Network Firewall
 
-**État du module · politique créée lors du nouvel essai.** Le pare-feu complet et les tests restent à réaliser. Lors du premier essai, le compte de l’école refuse explicitement `network-firewall:CreateFirewallPolicy` à Stockholm. Le test a été fait dans la stack séparée `satom-leman-nfw-bko`, qui a terminé en `ROLLBACK_COMPLETE`. Aucun endpoint de pare-feu n’a été créé.
+**État du module · déploiement et filtrage vérifiés.** Lors du premier essai, le compte de l’école refuse explicitement `network-firewall:CreateFirewallPolicy` à Stockholm. Le test a été fait dans la stack séparée `satom-leman-nfw-bko`, qui a terminé en `ROLLBACK_COMPLETE`. Aucun endpoint de pare-feu n’a été créé.
 
 ### TP 1 · Tentative de déploiement
 
@@ -315,9 +315,9 @@ Le [template de vérification](cloudformation/04-reessai-policy.json) a créé `
 
 ![Politique créée dans la console](modules/04-firewall/reessai/02-console.jpg)
 
-### TP 2 et TP 3 · Templates préparés
+### TP 2 et TP 3 · Conception initiale
 
-Le [template de filtrage et de journalisation](cloudformation/04-tp2-regles-journaux.json) prend les domaines approuvés en paramètre. Il prévoit la liste blanche HTTP et HTTPS et la livraison des alertes et flux dans CloudWatch Logs. Le [template de routage](cloudformation/04-tp3-routage-inspection.json) prend en paramètre le sous-réseau et l’endpoint du pare-feu. CloudFormation a validé les deux fichiers. Leur déploiement et les tests de trafic restent à réaliser.
+Le [template de filtrage et de journalisation](cloudformation/04-tp2-regles-journaux.json) prend les domaines approuvés en paramètre. Il prévoit la liste blanche HTTP et HTTPS et la livraison des alertes et flux dans CloudWatch Logs. Le [template de routage](cloudformation/04-tp3-routage-inspection.json) prend en paramètre le sous-réseau et l’endpoint du pare-feu. CloudFormation a validé les deux fichiers. Le déploiement a ensuite utilisé les variantes ci-dessous.
 
 | Table | Destination | Cible prévue pendant le test |
 |---|---|---|
@@ -328,7 +328,67 @@ Le [template de filtrage et de journalisation](cloudformation/04-tp2-regles-jour
 
 Le NAT d’inspection utilise le sous-réseau séparé `10.0.5.0/28`. Sa route retour permet de faire passer les deux sens par le même pare-feu sans modifier la table du serveur web. [Documentation AWS sur le retour symétrique](https://docs.aws.amazon.com/transform/latest/userguide/vpc-webapp-access.html).
 
-Pour reprendre le lab, confirmer les domaines de mises à jour approuvés et vérifier le droit de créer le pare-feu complet. Supprimer la stack en rollback avant de réutiliser son nom. Quand l’endpoint est prêt, appliquer le template de routage depuis la stack de production. Depuis `app-01_bko`, tester un dépôt approuvé puis un autre domaine, relever les résultats et les corréler aux journaux. Après les captures, réappliquer le template du module 3 avec ses paramètres de référence pour rétablir le NAT initial et retirer le NAT temporaire. Supprimer ensuite la stack du pare-feu.
+### Réalisation après rétablissement des accès
+
+Le pare-feu a été créé dans une stack qui référence la politique existante. [Template de l’endpoint](cloudformation/04-tp1-endpoint.json). AWS interdit de modifier l’ordre d’évaluation d’une politique déjà créée. Une nouvelle politique en ordre strict a donc été associée à l’endpoint. Le domaine retenu pour le test est le dépôt Amazon Linux 2023 configuré sur `app-01_bko`. Les deux destinations CloudWatch, alertes et flux, ont été activées. [Politique stricte](cloudformation/04-tp2-policy-strict.json) et [template de journalisation](cloudformation/04-tp2-endpoint-journaux.json).
+
+Le quota d’Elastic IP du compte partagé a refusé une allocation supplémentaire. Le NAT de référence a été retiré par CloudFormation en conservant son Elastic IP, puis cette même adresse a été associée à un NAT d’inspection dans `10.0.5.0/28`. Le trafic aller et retour a traversé le même endpoint. [Template effectif de routage](cloudformation/04-tp3-routage-eip-partagee.json).
+
+**La console affiche le pare-feu en état Ready.**
+
+![La console affiche le pare-feu en état Ready.](modules/04-firewall/realisation/02-ready.jpg)
+
+**L’endpoint est en état Ready à Stockholm et la politique de filtrage est associée.**
+
+![L’endpoint est en état Ready à Stockholm et la politique de filtrage est associée.](modules/04-firewall/realisation/05-console-journaux.jpg)
+
+**CloudFormation crée la politique stricte avec le domaine du dépôt du lab.**
+
+![CloudFormation crée la politique stricte avec le domaine du dépôt du lab.](modules/04-firewall/realisation/04-policy-strict-final.png)
+
+**La politique stricte est associée au pare-feu. Le terminal affiche les groupes CloudWatch pour FLOW et ALERT.**
+
+![La politique stricte est associée au pare-feu. Le terminal affiche les groupes CloudWatch pour FLOW et ALERT.](modules/04-firewall/realisation/05-association.png)
+
+**Avant la bascule, le dépôt et example.com renvoient tous deux HTTP 200.**
+
+![Avant la bascule, le dépôt et example.com renvoient tous deux HTTP 200.](modules/04-firewall/realisation/06-avant-filtrage.png)
+
+**CloudFormation bascule le NAT en deux mises à jour en réutilisant la même Elastic IP.**
+
+![CloudFormation bascule le NAT en deux mises à jour en réutilisant la même Elastic IP.](modules/04-firewall/realisation/07-routes-definitives.png)
+
+**La console affiche la route privée par défaut vers l’endpoint Network Firewall.**
+
+![La console affiche la route privée par défaut vers l’endpoint Network Firewall.](modules/04-firewall/realisation/08-console-route.jpg)
+
+**Les tables montrent le chemin aller et la route de retour du NAT d’inspection vers le même endpoint.**
+
+![Les tables montrent le chemin aller et la route de retour du NAT d’inspection vers le même endpoint.](modules/04-firewall/realisation/08-routes-actives.png)
+
+**Depuis app-01_bko, le dépôt Amazon Linux renvoie HTTP 200. La requête vers example.com expire avec le code curl 28.**
+
+![Depuis app-01_bko, le dépôt Amazon Linux renvoie HTTP 200. La requête vers example.com expire avec le code curl 28.](modules/04-firewall/realisation/09-tests.png)
+
+**CloudWatch enregistre l’alerte blocked pour la destination example.com et le flux vers le dépôt autorisé.**
+
+![CloudWatch enregistre l’alerte blocked pour la destination example.com et le flux vers le dépôt autorisé.](modules/04-firewall/realisation/10-cloudwatch.png)
+
+**CloudFormation rétablit la route privée active vers le NAT de référence.**
+
+![CloudFormation rétablit la route privée active vers le NAT de référence.](modules/04-firewall/realisation/11-nat-retabli.png)
+
+**Après restauration, le dépôt et le site de contrôle répondent à nouveau.** Les deux instances utilisées pour le test ont ensuite été arrêtées.
+
+![Tests HTTPS après restauration du NAT](modules/04-firewall/realisation/12-test-nat.png)
+
+Les trois stacks temporaires sont en `DELETE_COMPLETE`. Le nettoyage supprime le pare-feu, les deux politiques, le groupe de règles, le sous-réseau dédié et les groupes de journaux CloudWatch du TP.
+
+![Nettoyage vérifié du pare-feu et des journaux](modules/04-firewall/realisation/13-nettoyage.png)
+
+### Ressources de référence et coûts
+
+Après le TP, le NAT Gateway de référence, les deux Elastic IP et trois volumes EBS gp3 de 8 Gio sont toujours provisionnés. Les trois instances EC2 sont arrêtées. Les deux IPv4 publiques coûtent ensemble environ 7,30 USD pour 730 heures au tarif public, hors crédits. Le NAT et les volumes EBS s’ajoutent à ce montant. Ce relevé est un inventaire des ressources du projet dans le compte partagé. [Tarifs VPC](https://aws.amazon.com/vpc/pricing/) et [tarifs EBS](https://aws.amazon.com/ebs/pricing/).
 
 ## Module 5 · VPC Peering
 

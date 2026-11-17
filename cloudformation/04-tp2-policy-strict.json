@@ -1,0 +1,120 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Module 4 TP 2 - politique en ordre strict avec liste de domaines approuves",
+  "Parameters": {
+    "Equipe": {
+      "Type": "String",
+      "MinLength": 1
+    },
+    "DomainesAutorises": {
+      "Type": "CommaDelimitedList",
+      "Description": "Domaines exacts ou suffixes avec point initial, approuves par le formateur"
+    }
+  },
+  "Resources": {
+    "Politique": {
+      "Type": "AWS::NetworkFirewall::FirewallPolicy",
+      "Properties": {
+        "FirewallPolicyName": "policy-filtrage-leman-bko",
+        "FirewallPolicy": {
+          "StatelessDefaultActions": [
+            "aws:forward_to_sfe"
+          ],
+          "StatelessFragmentDefaultActions": [
+            "aws:forward_to_sfe"
+          ],
+          "StatefulEngineOptions": {
+            "RuleOrder": "STRICT_ORDER"
+          },
+          "StatefulDefaultActions": [
+            "aws:drop_established",
+            "aws:alert_established"
+          ],
+          "StatefulRuleGroupReferences": [
+            {
+              "ResourceArn": {
+                "Fn::GetAtt": [
+                  "ListeBlanche",
+                  "RuleGroupArn"
+                ]
+              },
+              "Priority": 10
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "policy-filtrage-leman-bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    },
+    "ListeBlanche": {
+      "Type": "AWS::NetworkFirewall::RuleGroup",
+      "Properties": {
+        "RuleGroupName": "domaines-strict-leman-bko",
+        "Type": "STATEFUL",
+        "Capacity": 100,
+        "RuleGroup": {
+          "StatefulRuleOptions": {
+            "RuleOrder": "STRICT_ORDER"
+          },
+          "RulesSource": {
+            "RulesSourceList": {
+              "GeneratedRulesType": "ALLOWLIST",
+              "Targets": {
+                "Ref": "DomainesAutorises"
+              },
+              "TargetTypes": [
+                "HTTP_HOST",
+                "TLS_SNI"
+              ]
+            }
+          }
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "domaines-strict-leman-bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "PolicyArn": {
+      "Value": {
+        "Ref": "Politique"
+      }
+    }
+  }
+}
