@@ -560,3 +560,97 @@ Pour diagnostiquer l’asymétrie, vérifier dans l’ordre l’association de c
 ![Les trois instances EC2 du projet sont confirmées arrêtées.](modules/06-transit-gateway/realisation/09-arret.png)
 
 Les deux attachements Transit Gateway restent disponibles pour le module 7. Ils sont facturés à l’heure même avec les EC2 arrêtées. [Tarification AWS Transit Gateway](https://aws.amazon.com/transit-gateway/pricing/).
+
+## Module 7 · VPN Site-to-Site
+
+### TP 1 · Connexions VPN et adresses des tunnels
+
+Le [template des VPN](cloudformation/07-tp1-vpn.json) crée deux Customer Gateways et deux VPN à routes statiques, avec deux tunnels par site. Les adresses publiques imposées par le TP appartiennent aux plages TEST-NET. Les connexions sont provisionnées dans AWS et les quatre tunnels sont DOWN. La négociation IKE avec les points de terminaison AWS reste à valider avec des routeurs disposant d'adresses publiques joignables. CloudFormation demande le stockage natif des clés dans Secrets Manager. La vérification AWS confirme la présence d’une référence de secret pour chaque VPN. AWS gère le nom des secrets.
+
+| Site | LAN | Adresse publique du scénario | CIDR internes des tunnels AWS |
+| --- | --- | --- | --- |
+| Siège Cornavin | `192.168.10.0/24` | `203.0.113.10` | `169.254.136.144/30`, `169.254.147.252/30` |
+| Agence Lausanne | `192.168.20.0/24` | `198.51.100.20` | `169.254.61.236/30`, `169.254.230.192/30` |
+
+**Déploiement CloudFormation des connexions et vérification des quatre tunnels AWS.**
+
+![Déploiement des VPN](modules/07-vpn/01-deploiement.png)
+![Console VPC filtrée sur les deux connexions VPN du projet](modules/07-vpn/02-console.png)
+![Connexions, état des tunnels et CIDR internes](modules/07-vpn/02-tunnels.png)
+
+### TP 2 et TP 3 · Routage, segmentation et redondance
+
+Le [template de routage](cloudformation/07-tp2-tp3-routes.json) associe les deux connexions à une table Transit Gateway dédiée aux sites. Cette table dirige uniquement `10.0.2.10/32` vers la production. Les préfixes du siège et de l'agence sont ajoutés à la table TGW de production et à la table VPC du sous-réseau applicatif pour le retour. Le groupe de sécurité de l'application autorise TCP 8080 depuis les deux sites et ICMP depuis le siège pour le diagnostic. AWS affiche les deux routes de retour en `blackhole` tant que les tunnels sont DOWN. La table du développement contient la route vers la production et aucune route vers les sites.
+
+```mermaid
+flowchart LR
+  S["Cornavin · 192.168.10.0/24"] -->|2 tunnels IPsec| T["Transit Gateway · table des sites"]
+  A["Lausanne · 192.168.20.0/24"] -->|2 tunnels IPsec| T
+  T -->|10.0.2.10/32| P["VPC prod · app-01"]
+  T --- D["VPC dev · table séparée"]
+```
+
+**Déploiement du routage et lecture des tables TGW des sites, de la production et du développement.**
+
+![Déploiement des routes et des règles](modules/07-vpn/03-routes.png)
+![Routes des trois tables TGW](modules/07-vpn/04-routes-verifiees.png)
+
+Les tests de trafic utilisent [un lab Linux isolé](modules/07-vpn/simulation/lab.py) avec des espaces réseau séparés et IPsec ESP AES-GCM via XFRM. Il reproduit le trajet de données avec des clés éphémères locales. Les instances AWS ne sont pas utilisées pour ces tests. Le siège atteint l'application en ICMP. Depuis l'agence, HTTP sur 8080 répond et TCP 8081 expire. Aucun des deux sites ne peut joindre l'adresse du développement dans le lab.
+
+**Tests du siège et de l'agence, puis bascule du siège sur le second tunnel avec réponse au ping.**
+
+![Tests de filtrage et d'isolation locaux](modules/07-vpn/05-filtrage-local.png)
+![Bascule IPsec locale après coupure du premier tunnel](modules/07-vpn/06-bascule-local.png)
+![Compteurs ESP sur les chemins testés](modules/07-vpn/07-esp-local.png)
+
+1. Vérifier l'état et la télémétrie des deux tunnels côté AWS et côté routeur.
+2. Comparer les paramètres IKE et ESP, les CIDR internes et la clé pré-partagée via Secrets Manager.
+3. Suivre le trajet aller dans la table des sites et le retour dans les tables TGW et VPC de production.
+4. Vérifier que le groupe de sécurité de l'application autorise le port et le CIDR source du test.
+
+## Module 8 · Direct Connect
+
+### TP 1 · Dimensionnement et association AWS
+
+Pour transférer 2 To décimaux en 8 h, il faut en moyenne `16 000 Gbit ÷ 28 800 s = 0,556 Gbit/s`. Un port de 1 Gbit/s laisse environ 44,4 % de capacité nominale avant les surcharges et le trafic concurrent. Le site de colocation retenu est **Equinix ZRH51**, à Oberengstringen près de Zurich. Le port physique et la VIF de transit figurent dans l'architecture cible. Le TP n'a commandé aucun port. [Emplacements AWS Direct Connect](https://docs.aws.amazon.com/directconnect/latest/UserGuide/Colocation.html).
+
+Le [template Direct Connect](cloudformation/08-tp1-dxgw.json) crée `dxgw-leman-bko` (ASN `64513`) et l'associe à la Transit Gateway avec les préfixes autorisés `10.0.0.0/16` et `192.168.10.0/24`. AWS renvoie respectivement `available` et `associated`.
+
+**Déploiement du DXGW et vérification de son association et de ses préfixes.**
+
+![Déploiement du DXGW](modules/08-direct-connect/01-deploiement.png)
+![État du DXGW et préfixes autorisés](modules/08-direct-connect/02-association.png)
+
+```mermaid
+flowchart LR
+  S["Cornavin · ASN 65010"] -->|Fibre 1 Gbit/s| C["Colocation ZRH51"]
+  C -->|VIF de transit · BGP| X["DXGW · ASN 64513"]
+  X --> T["Transit Gateway"]
+  S -.->|VPN de secours| T
+  T --> P["Production · app-01 10.0.2.10"]
+```
+
+### TP 2 et TP 3 · BGP sur GRE et secours VPN
+
+Le lab Linux utilise BIRD 2 pour établir une session BGP sur GRE et une seconde sur le VPN IPsec. Le siège annonce `192.168.10.0/24` et reçoit `10.0.0.0/16`. Le siège applique une `local-pref` de 200 sur GRE, contre 100 sur le secours. L'annonce du siège par le VPN ajoute trois occurrences de l'ASN `65010` à celle déjà présente. Les résultats ci-dessous concernent la simulation locale, qui remplace GNS3 dans ce rendu.
+
+**Sessions BGP établies, préférence GRE et AS-path du secours observé côté AWS simulé.**
+
+![Sessions BGP et préférence locale](modules/08-direct-connect/04-bgp-local.png)
+![AS-path plus long sur le VPN](modules/08-direct-connect/05-prepending-local.png)
+
+**Coupure administrative de GRE, bascule vers IPsec, puis retour automatique vers GRE.** La route du siège a changé en environ 0,01 s dans ce test local. Le ping lancé après chaque changement a reçu les deux réponses. Ce délai mesure un changement de route après une coupure administrative, avec les sessions et les timers du lab.
+
+![Bascule locale sur le VPN](modules/08-direct-connect/06-secours-local.png)
+![Retour local du trafic sur GRE](modules/08-direct-connect/07-retour-local.png)
+
+1. Vérifier que la session BGP est `Established` sur chaque liaison disponible.
+2. Contrôler les préfixes annoncés par le siège et ceux reçus pour la production.
+3. Vérifier la `local-pref` sur le routeur du siège et l'AS-path côté AWS ou sur son équivalent simulé.
+4. Contrôler la route de retour vers `192.168.10.0/24` dans la table TGW de production et l'attachement qui la porte.
+
+### Rejouer le lab et suivre les coûts
+
+Le [script des modules 7 et 8](modules/07-vpn/simulation/lab.py) s'exécute sur Linux avec Python 3, iproute2, iputils, nftables, curl, BIRD 2 et le support TUN et XFRM. Exécuter `unshare -Urn python3 modules/07-vpn/simulation/lab.py /usr/sbin/bird "$(mktemp -d)"`. Les espaces réseau et les processus locaux sont arrêtés à la fin du script.
+
+Le DXGW et son association sont conservés pour le module 13. Les VPN AWS coûtent à l'heure tant qu'ils sont provisionnés, même avec les tunnels DOWN. Pour clore le test AWS, supprimer d'abord la stack de routage `satom-leman-sites-bko`, puis la stack des connexions `satom-leman-vpn-bko`. [Tarification AWS Site-to-Site VPN](https://aws.amazon.com/vpn/pricing/).

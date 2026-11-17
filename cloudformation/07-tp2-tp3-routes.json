@@ -1,0 +1,190 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Module 7 - routes statiques et segmentation des sites",
+  "Parameters": {
+    "TgwId": {
+      "Type": "String",
+      "AllowedPattern": "tgw-[0-9a-f]+"
+    },
+    "TableTgwProd": {
+      "Type": "String",
+      "AllowedPattern": "tgw-rtb-[0-9a-f]+"
+    },
+    "AttProd": {
+      "Type": "String",
+      "AllowedPattern": "tgw-attach-[0-9a-f]+"
+    },
+    "AttSiege": {
+      "Type": "String",
+      "AllowedPattern": "tgw-attach-[0-9a-f]+"
+    },
+    "AttAgence": {
+      "Type": "String",
+      "AllowedPattern": "tgw-attach-[0-9a-f]+"
+    },
+    "TableVpcProd": {
+      "Type": "String",
+      "AllowedPattern": "rtb-[0-9a-f]+"
+    },
+    "SgApp": {
+      "Type": "String",
+      "AllowedPattern": "sg-[0-9a-f]+"
+    }
+  },
+  "Resources": {
+    "TableSites": {
+      "Type": "AWS::EC2::TransitGatewayRouteTable",
+      "Properties": {
+        "TransitGatewayId": {
+          "Ref": "TgwId"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "tgw-rt-sites_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "lab"
+          }
+        ]
+      }
+    },
+    "SitesVersApp": {
+      "Type": "AWS::EC2::TransitGatewayRoute",
+      "Properties": {
+        "TransitGatewayRouteTableId": {
+          "Ref": "TableSites"
+        },
+        "DestinationCidrBlock": "10.0.2.10/32",
+        "TransitGatewayAttachmentId": {
+          "Ref": "AttProd"
+        }
+      }
+    },
+    "AssocSiege": {
+      "Type": "AWS::EC2::TransitGatewayRouteTableAssociation",
+      "Properties": {
+        "TransitGatewayRouteTableId": {
+          "Ref": "TableSites"
+        },
+        "TransitGatewayAttachmentId": {
+          "Ref": "AttSiege"
+        }
+      }
+    },
+    "TgwVersSiege": {
+      "Type": "AWS::EC2::TransitGatewayRoute",
+      "Properties": {
+        "TransitGatewayRouteTableId": {
+          "Ref": "TableTgwProd"
+        },
+        "DestinationCidrBlock": "192.168.10.0/24",
+        "TransitGatewayAttachmentId": {
+          "Ref": "AttSiege"
+        }
+      }
+    },
+    "VpcVersSiege": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "TableVpcProd"
+        },
+        "DestinationCidrBlock": "192.168.10.0/24",
+        "TransitGatewayId": {
+          "Ref": "TgwId"
+        }
+      }
+    },
+    "HttpSiege": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "SgApp"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8080,
+        "ToPort": 8080,
+        "CidrIp": "192.168.10.0/24",
+        "Description": "VPN site Siege TP7"
+      }
+    },
+    "AssocAgence": {
+      "Type": "AWS::EC2::TransitGatewayRouteTableAssociation",
+      "Properties": {
+        "TransitGatewayRouteTableId": {
+          "Ref": "TableSites"
+        },
+        "TransitGatewayAttachmentId": {
+          "Ref": "AttAgence"
+        }
+      }
+    },
+    "TgwVersAgence": {
+      "Type": "AWS::EC2::TransitGatewayRoute",
+      "Properties": {
+        "TransitGatewayRouteTableId": {
+          "Ref": "TableTgwProd"
+        },
+        "DestinationCidrBlock": "192.168.20.0/24",
+        "TransitGatewayAttachmentId": {
+          "Ref": "AttAgence"
+        }
+      }
+    },
+    "VpcVersAgence": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "TableVpcProd"
+        },
+        "DestinationCidrBlock": "192.168.20.0/24",
+        "TransitGatewayId": {
+          "Ref": "TgwId"
+        }
+      }
+    },
+    "HttpAgence": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "SgApp"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8080,
+        "ToPort": 8080,
+        "CidrIp": "192.168.20.0/24",
+        "Description": "VPN site Agence TP7"
+      }
+    },
+    "PingSiege": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "SgApp"
+        },
+        "IpProtocol": "icmp",
+        "FromPort": 8,
+        "ToPort": -1,
+        "CidrIp": "192.168.10.0/24",
+        "Description": "Ping de diagnostic TP7"
+      }
+    }
+  },
+  "Outputs": {
+    "TgwTableSitesId": {
+      "Value": {
+        "Ref": "TableSites"
+      }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "TgwId": {
+      "Type": "String",
+      "AllowedPattern": "tgw-[0-9a-f]+"
+    }
+  },
+  "Description": "Module 8 - DXGW et association TGW, sans port physique",
+  "Resources": {
+    "DirectConnectGateway": {
+      "Type": "AWS::DirectConnect::DirectConnectGateway",
+      "Properties": {
+        "DirectConnectGatewayName": "dxgw-leman-bko",
+        "AmazonSideAsn": 64513
+      }
+    },
+    "Association": {
+      "Type": "AWS::DirectConnect::DirectConnectGatewayAssociation",
+      "Properties": {
+        "DirectConnectGatewayId": {
+          "Ref": "DirectConnectGateway"
+        },
+        "AssociatedGatewayId": {
+          "Ref": "TgwId"
+        },
+        "AllowedPrefixesToDirectConnectGateway": [
+          "10.0.0.0/16",
+          "192.168.10.0/24"
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "DxGatewayArn": {
+      "Value": {
+        "Ref": "DirectConnectGateway"
+      }
+    },
+    "AssociationId": {
+      "Value": {
+        "Ref": "Association"
+      }
+    }
+  }
+}

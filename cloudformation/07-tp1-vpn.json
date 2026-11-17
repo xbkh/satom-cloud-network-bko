@@ -1,0 +1,144 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "TgwId": {
+      "Type": "String",
+      "AllowedPattern": "tgw-[0-9a-f]+"
+    }
+  },
+  "Description": "Module 7 - deux VPN statiques avec IP de documentation et PSK gerees par Secrets Manager",
+  "Resources": {
+    "CgwSiege": {
+      "Type": "AWS::EC2::CustomerGateway",
+      "Properties": {
+        "BgpAsn": 65010,
+        "IpAddress": "203.0.113.10",
+        "Type": "ipsec.1",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "cgw-siege_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "lab"
+          }
+        ]
+      }
+    },
+    "VpnSiege": {
+      "Type": "AWS::EC2::VPNConnection",
+      "Properties": {
+        "CustomerGatewayId": {
+          "Ref": "CgwSiege"
+        },
+        "TransitGatewayId": {
+          "Ref": "TgwId"
+        },
+        "Type": "ipsec.1",
+        "StaticRoutesOnly": true,
+        "PreSharedKeyStorage": "SecretsManager",
+        "LocalIpv4NetworkCidr": "192.168.10.0/24",
+        "RemoteIpv4NetworkCidr": "10.0.0.0/16",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "vpn-siege_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "lab"
+          }
+        ]
+      }
+    },
+    "CgwAgence": {
+      "Type": "AWS::EC2::CustomerGateway",
+      "Properties": {
+        "BgpAsn": 65020,
+        "IpAddress": "198.51.100.20",
+        "Type": "ipsec.1",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "cgw-agence_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "lab"
+          }
+        ]
+      }
+    },
+    "VpnAgence": {
+      "Type": "AWS::EC2::VPNConnection",
+      "Properties": {
+        "CustomerGatewayId": {
+          "Ref": "CgwAgence"
+        },
+        "TransitGatewayId": {
+          "Ref": "TgwId"
+        },
+        "Type": "ipsec.1",
+        "StaticRoutesOnly": true,
+        "PreSharedKeyStorage": "SecretsManager",
+        "LocalIpv4NetworkCidr": "192.168.20.0/24",
+        "RemoteIpv4NetworkCidr": "10.0.0.0/16",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "vpn-agence_bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": "bko"
+          },
+          {
+            "Key": "Environnement",
+            "Value": "lab"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "VpnSiegeId": {
+      "Value": {
+        "Ref": "VpnSiege"
+      }
+    },
+    "VpnAgenceId": {
+      "Value": {
+        "Ref": "VpnAgence"
+      }
+    }
+  }
+}
