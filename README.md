@@ -653,4 +653,6 @@ Le lab Linux utilise BIRD 2 pour établir une session BGP sur GRE et une seconde
 
 Le [script des modules 7 et 8](modules/07-vpn/simulation/lab.py) s'exécute sur Linux avec Python 3, iproute2, iputils, nftables, curl, BIRD 2 et le support TUN et XFRM. Exécuter `unshare -Urn python3 modules/07-vpn/simulation/lab.py /usr/sbin/bird "$(mktemp -d)"`. Les espaces réseau et les processus locaux sont arrêtés à la fin du script.
 
-Le DXGW et son association sont conservés pour le module 13. Les VPN AWS coûtent à l'heure tant qu'ils sont provisionnés, même avec les tunnels DOWN. Pour clore le test AWS, supprimer d'abord la stack de routage `satom-leman-sites-bko`, puis la stack des connexions `satom-leman-vpn-bko`. [Tarification AWS Site-to-Site VPN](https://aws.amazon.com/vpn/pricing/).
+Après les vérifications, les stacks `satom-leman-sites-bko` et `satom-leman-vpn-bko` ont été supprimées dans cet ordre. AWS confirme qu’aucun des deux VPN du TP ne reste provisionné. Les templates permettent de recréer les VPN et leur routage au module 13. La Transit Gateway, le DXGW et son association sont conservés pour la suite. [Tarification AWS Site-to-Site VPN](https://aws.amazon.com/vpn/pricing/).
+
+![Vérification AWS après suppression des stacks VPN et routage des sites](modules/07-vpn/08-nettoyage.png)
