@@ -1,0 +1,53 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Verification du droit CreateFirewallPolicy sans endpoint",
+  "Parameters": {
+    "Equipe": {
+      "Type": "String",
+      "MinLength": 1
+    }
+  },
+  "Resources": {
+    "Politique": {
+      "Type": "AWS::NetworkFirewall::FirewallPolicy",
+      "Properties": {
+        "FirewallPolicyName": "policy-prod-leman-bko",
+        "FirewallPolicy": {
+          "StatelessDefaultActions": [
+            "aws:forward_to_sfe"
+          ],
+          "StatelessFragmentDefaultActions": [
+            "aws:forward_to_sfe"
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "policy-prod-leman-bko"
+          },
+          {
+            "Key": "Projet",
+            "Value": "SatomCloudNetwork"
+          },
+          {
+            "Key": "Equipe",
+            "Value": {
+              "Ref": "Equipe"
+            }
+          },
+          {
+            "Key": "Environnement",
+            "Value": "prod"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "PolicyArn": {
+      "Value": {
+        "Ref": "Politique"
+      }
+    }
+  }
+}

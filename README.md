@@ -285,7 +285,7 @@ flowchart LR
 
 ## Module 4 · Network Firewall
 
-**État du module · bloqué par la politique de l’organisation AWS.** Le compte de l’école refuse explicitement `network-firewall:CreateFirewallPolicy` à Stockholm. Le test a été fait dans la stack séparée `satom-leman-nfw-bko`, qui a terminé en `ROLLBACK_COMPLETE`. Aucun endpoint de pare-feu n’a été créé.
+**État du module · politique créée lors du nouvel essai.** Le pare-feu complet et les tests restent à réaliser. Lors du premier essai, le compte de l’école refuse explicitement `network-firewall:CreateFirewallPolicy` à Stockholm. Le test a été fait dans la stack séparée `satom-leman-nfw-bko`, qui a terminé en `ROLLBACK_COMPLETE`. Aucun endpoint de pare-feu n’a été créé.
 
 ### TP 1 · Tentative de déploiement
 
@@ -303,7 +303,19 @@ Le [template CloudFormation](cloudformation/04-tp1-network-firewall.json) prévo
 
 ![Vérification du retour arrière et de la route](modules/04-firewall/tp1/03-retour-arriere.png)
 
-### TP 2 et TP 3 · Préparés, en attente d’un compte autorisé
+### Nouvel essai · Politique créée
+
+Le [template de vérification](cloudformation/04-reessai-policy.json) a créé `policy-prod-leman-bko` sur le compte d’origine à Stockholm, dans la stack `satom-leman-policy-bko`. Cette stack gère la politique seule. Pour la suite, référencer cette politique ou retirer la stack de vérification avant de redéployer un template qui crée une politique du même nom.
+
+**Terminal.** CloudFormation termine le déploiement de la politique.
+
+![Création réussie de la politique](modules/04-firewall/reessai/01-deploiement.png)
+
+**Console AWS.** La politique est visible dans Network Firewall.
+
+![Politique créée dans la console](modules/04-firewall/reessai/02-console.jpg)
+
+### TP 2 et TP 3 · Templates préparés
 
 Le [template de filtrage et de journalisation](cloudformation/04-tp2-regles-journaux.json) prend les domaines approuvés en paramètre. Il prévoit la liste blanche HTTP et HTTPS et la livraison des alertes et flux dans CloudWatch Logs. Le [template de routage](cloudformation/04-tp3-routage-inspection.json) prend en paramètre le sous-réseau et l’endpoint du pare-feu. CloudFormation a validé les deux fichiers. Leur déploiement et les tests de trafic restent à réaliser.
 
@@ -316,7 +328,7 @@ Le [template de filtrage et de journalisation](cloudformation/04-tp2-regles-jour
 
 Le NAT d’inspection utilise le sous-réseau séparé `10.0.5.0/28`. Sa route retour permet de faire passer les deux sens par le même pare-feu sans modifier la table du serveur web. [Documentation AWS sur le retour symétrique](https://docs.aws.amazon.com/transform/latest/userguide/vpc-webapp-access.html).
 
-Pour reprendre le lab, faire autoriser Network Firewall par l’école, faire confirmer les domaines de mises à jour approuvés, puis redéployer la stack de test après suppression de la stack en rollback. Quand l’endpoint est prêt, appliquer le template de routage depuis la stack de production. Depuis `app-01_bko`, tester un dépôt approuvé puis un autre domaine, relever les résultats et les corréler aux journaux. Après les captures, réappliquer le template du module 3 avec ses paramètres de référence pour rétablir le NAT initial et retirer le NAT temporaire. Supprimer ensuite la stack du pare-feu.
+Pour reprendre le lab, confirmer les domaines de mises à jour approuvés et vérifier le droit de créer le pare-feu complet. Supprimer la stack en rollback avant de réutiliser son nom. Quand l’endpoint est prêt, appliquer le template de routage depuis la stack de production. Depuis `app-01_bko`, tester un dépôt approuvé puis un autre domaine, relever les résultats et les corréler aux journaux. Après les captures, réappliquer le template du module 3 avec ses paramètres de référence pour rétablir le NAT initial et retirer le NAT temporaire. Supprimer ensuite la stack du pare-feu.
 
 ## Module 5 · VPC Peering
 
