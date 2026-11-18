@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DNS privé, alias et failover Léman Finance.
+Parameters:
+  VpcId: {Type: 'AWS::EC2::VPC::Id'}
+  AlbDns: {Type: String}
+  AlbZone: {Type: String}
+  PublicZoneName: {Type: String, Default: leman-finance.example}
+  Endpoint:
+    Type: String
+    Default: alb
+    AllowedValues: [alb, failover, cloudfront]
+  CloudFrontDns: {Type: String, Default: ''}
+  HealthCheckProtocol:
+    Type: String
+    Default: HTTP
+    AllowedValues: [HTTP, HTTPS]
+Conditions:
+  HttpsCheck: !Or [!Equals [!Ref HealthCheckProtocol, HTTPS], !Condition UseCloudFront]
+  Failover: !Not [!Equals [!Ref Endpoint, alb]]
+  UseCloudFront: !Equals [!Ref Endpoint, cloudfront]
+Resources:
+  PrivateZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: prod.leman.internal
+      HostedZoneConfig: {Comment: Zone privée du lab bko}
+      VPCs: [{VPCId: !Ref VpcId, VPCRegion: !Ref 'AWS::Region'}]
+      HostedZoneTags: [{Key: Equipe, Value: bko}, {Key: Projet, Value: SatomCloudNetwork}]
+  Web:
+    Type: AWS::Route53::RecordSet
+    Properties: {HostedZoneId: !Ref PrivateZone, Name: web.prod.leman.internal., Type: A, TTL: '60', ResourceRecords: [10.0.1.10]}
+  App:
+    Type: AWS::Route53::RecordSet
+    Properties: {HostedZoneId: !Ref PrivateZone, Name: app.prod.leman.internal., Type: A, TTL: '60', ResourceRecords: [10.0.2.10]}
+  PublicZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Ref PublicZoneName
+      HostedZoneConfig: {Comment: Zone publique du lab bko}
+      HostedZoneTags: [{Key: Equipe, Value: bko}, {Key: Projet, Value: SatomCloudNetwork}]
+  Health:
+    Type: AWS::Route53::HealthCheck
+    Condition: Failover
+    Properties:
+      HealthCheckConfig:
+        Type: !If [HttpsCheck, HTTPS, HTTP]
+        FullyQualifiedDomainName: !If [UseCloudFront, !Ref CloudFrontDns, !Ref AlbDns]
+        Port: !If [HttpsCheck, 443, 80]
+        ResourcePath: /health
+        RequestInterval: 30
+        FailureThreshold: 2
+        EnableSNI: !If [HttpsCheck, true, !Ref AWS::NoValue]
+      HealthCheckTags: [{Key: Name, Value: hc-portail-leman-bko}]
+  Primary:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref PublicZone
+      Name: !Sub 'portefeuilles.${PublicZoneName}.'
+      Type: A
+      SetIdentifier: primaire-bko
+      Failover: PRIMARY
+      HealthCheckId: !If [Failover, !Ref Health, !Ref AWS::NoValue]
+      AliasTarget:
+        DNSName: !If [UseCloudFront, !Ref CloudFrontDns, !Ref AlbDns]
+        HostedZoneId: !If [UseCloudFront, Z2FDTNDATAQYW2, !Ref AlbZone]
+        EvaluateTargetHealth: !If [UseCloudFront, false, true]
+  Secondary:
+    Type: AWS::Route53::RecordSet
+    Condition: Failover
+    Properties:
+      HostedZoneId: !Ref PublicZone
+      Name: !Sub 'portefeuilles.${PublicZoneName}.'
+      Type: A
+      SetIdentifier: maintenance-bko
+      Failover: SECONDARY
+      TTL: '30'
+      ResourceRecords: [203.0.113.50]
+Outputs:
+  PublicZoneId: {Value: !Ref PublicZone}
+  NameServers: {Value: !Join [',', !GetAtt PublicZone.NameServers]}
+  HealthCheckId: {Condition: Failover, Value: !Ref Health}

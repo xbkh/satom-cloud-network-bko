@@ -1,0 +1,404 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Réseau et portail jetables Léman Finance, modules 9 à 13.
+Parameters:
+  Environnement:
+    Type: String
+    Default: prod
+    AllowedValues: [prod, dev]
+  CidrVpc:
+    Type: String
+    Default: 10.0.0.0/16
+  PublicACidr:
+    Type: String
+    Default: 10.0.1.0/24
+  PublicBCidr:
+    Type: String
+    Default: 10.0.5.0/24
+  PrivateACidr:
+    Type: String
+    Default: 10.0.2.0/24
+  WebIp:
+    Type: String
+    Default: 10.0.1.10
+  WebBackupIp:
+    Type: String
+    Default: 10.0.5.10
+  AppIp:
+    Type: String
+    Default: 10.0.2.10
+  DeployPortal:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  WebBackup:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+  Ami:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+  InstanceType:
+    Type: String
+    Default: t3.micro
+  CertificateArn:
+    Type: String
+    Default: ''
+  OriginPrefixListId:
+    Type: String
+    Default: ''
+  OriginHeader:
+    Type: String
+    NoEcho: true
+    Default: ''
+  DiagnosticRule:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+Conditions:
+  Portal: !Equals [!Ref DeployPortal, 'true']
+  Backup: !And [!Condition Portal, !Equals [!Ref WebBackup, 'true']]
+  Tls: !And [!Condition Portal, !Not [!Equals [!Ref CertificateArn, '']]]
+  OriginLocked: !Not [!Equals [!Ref OriginPrefixListId, '']]
+  AllowHttp: !Or [!Not [!Condition OriginLocked], !Not [!Condition Tls]]
+  HttpActive: !And [!Condition Portal, !Condition AllowHttp]
+  RequireOriginHeader: !Not [!Equals [!Ref OriginHeader, '']]
+  DriftRule: !Equals [!Ref DiagnosticRule, 'true']
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref CidrVpc
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{Key: Name, Value: !Sub 'vpc-${Environnement}-leman_bko'}]
+  PublicA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PublicACidr
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags: [{Key: Name, Value: sub-public-1a_bko}]
+  PublicB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PublicBCidr
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags: [{Key: Name, Value: sub-public-1b_bko}]
+  PrivateA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PrivateACidr
+      AvailabilityZone: !GetAtt PublicA.AvailabilityZone
+      Tags: [{Key: Name, Value: sub-prive-1a_bko}]
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: [{Key: Name, Value: igw-portail-leman_bko}]
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: {VpcId: !Ref Vpc, InternetGatewayId: !Ref InternetGateway}
+  PublicRoutes:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{Key: Name, Value: rt-public-leman_bko}]
+  InternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRoutes
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  PublicAAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref PublicA, RouteTableId: !Ref PublicRoutes}
+  PublicBAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref PublicB, RouteTableId: !Ref PublicRoutes}
+  AlbSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Entree du portail
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - !If
+          - AllowHttp
+          - !If
+            - OriginLocked
+            - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourcePrefixListId: !Ref OriginPrefixListId}
+            - {IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0}
+          - !Ref AWS::NoValue
+        - !If
+          - Tls
+          - !If
+            - OriginLocked
+            - {IpProtocol: tcp, FromPort: 443, ToPort: 443, SourcePrefixListId: !Ref OriginPrefixListId}
+            - {IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0}
+          - !Ref AWS::NoValue
+        - !If
+          - DriftRule
+          - {IpProtocol: tcp, FromPort: 8443, ToPort: 8443, CidrIp: 192.0.2.0/24, Description: Test drift bko}
+          - !Ref AWS::NoValue
+      Tags: [{Key: Name, Value: sg-alb-leman_bko}]
+  WebSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Cibles web du portail
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref AlbSg}
+      Tags: [{Key: Name, Value: sg-web-leman_bko}]
+  AppSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Cible API du portail
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 8080, ToPort: 8080, SourceSecurityGroupId: !Ref AlbSg}
+      Tags: [{Key: Name, Value: sg-app-leman_bko}]
+  InstanceDefaults:
+    Type: AWS::EC2::LaunchTemplate
+    Condition: Portal
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref Ami
+        InstanceType: !Ref InstanceType
+        CreditSpecification: {CpuCredits: standard}
+        MetadataOptions: {HttpTokens: required}
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -eu
+            cat > /opt/leman.py <<'PY'
+            from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+            import socket
+
+            local_ip = socket.gethostbyname(socket.gethostname())
+            is_app = local_ip == "${AppIp}"
+
+            class Handler(BaseHTTPRequestHandler):
+                def do_HEAD(self):
+                    self.do_GET()
+
+                def do_GET(self):
+                    path = self.path.split("?", 1)[0]
+                    if is_app:
+                        if path == "/api/health":
+                            status, body = 200, f"app-01_bko OK ({local_ip})"
+                        elif path == "/api/error":
+                            status, body = 500, "Erreur applicative volontaire du TP"
+                        elif path == "/api/flow-test":
+                            try:
+                                with socket.create_connection(("${WebIp}", 22), timeout=2):
+                                    status, body = 200, "Connexion inattendue sur 22"
+                            except OSError:
+                                status, body = 200, "Connexion au port 22 non établie"
+                        else:
+                            status, body = 404, "Route API inconnue"
+                    elif path == "/static/logo.png":
+                        import base64
+                        body = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAZElEQVR4nO3PQQ3AIADAQEAEgrCD//9E8Lgs6Slo5z53/NnSAa8a0BrQGtAa0BrQGtAa0BrQGtAa0BrQGtAa0BrQGtAa0BrQGtAa0BrQGtAa0BrQGtAa0BrQGtAa0BrQGtAa0D4CBAFDmwGDrAAAAABJRU5ErkJggg==")
+                        self.send_response(200)
+                        self.send_header("Content-Type", "image/png")
+                        self.send_header("Cache-Control", "public, max-age=86400")
+                        self.end_headers()
+                        if self.command != "HEAD":
+                            self.wfile.write(body)
+                        return
+                    elif path == "/health":
+                        status, body = 200, "healthy"
+                    elif path == "/dns-test":
+                        try:
+                            result = socket.gethostbyname("app.prod.leman.internal")
+                            status, body = 200, f"app.prod.leman.internal = {result}"
+                        except OSError:
+                            status, body = 503, "Zone DNS privée indisponible"
+                    elif path == "/":
+                        status = 200
+                        body = "web-01_bko" if local_ip == "${WebIp}" else "web-02_bko"
+                    else:
+                        status, body = 404, "Page inconnue"
+                    self.send_response(status)
+                    self.send_header("Content-Type", "text/plain; charset=utf-8")
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    if self.command != "HEAD":
+                        self.wfile.write((body + "\n").encode())
+
+            ThreadingHTTPServer(("0.0.0.0", 8080 if is_app else 80), Handler).serve_forever()
+            PY
+            cat > /etc/systemd/system/leman.service <<'UNIT'
+            [Unit]
+            Description=Portail du lab Léman Finance
+            After=network-online.target
+            [Service]
+            ExecStart=/usr/bin/python3 /opt/leman.py
+            Restart=on-failure
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+            systemctl daemon-reload
+            systemctl enable --now leman.service
+  Web:
+    Type: AWS::EC2::Instance
+    Condition: Portal
+    Properties:
+      LaunchTemplate: {LaunchTemplateId: !Ref InstanceDefaults, Version: !GetAtt InstanceDefaults.LatestVersionNumber}
+      PrivateIpAddress: !Ref WebIp
+      SubnetId: !Ref PublicA
+      SecurityGroupIds: [!Ref WebSg]
+      Tags: [{Key: Name, Value: web-01-bko-portail}]
+  Web2:
+    Type: AWS::EC2::Instance
+    Condition: Backup
+    Properties:
+      LaunchTemplate: {LaunchTemplateId: !Ref InstanceDefaults, Version: !GetAtt InstanceDefaults.LatestVersionNumber}
+      PrivateIpAddress: !Ref WebBackupIp
+      SubnetId: !Ref PublicB
+      SecurityGroupIds: [!Ref WebSg]
+      Tags: [{Key: Name, Value: web-02-bko-portail}]
+  App:
+    Type: AWS::EC2::Instance
+    Condition: Portal
+    Properties:
+      LaunchTemplate: {LaunchTemplateId: !Ref InstanceDefaults, Version: !GetAtt InstanceDefaults.LatestVersionNumber}
+      PrivateIpAddress: !Ref AppIp
+      SubnetId: !Ref PrivateA
+      SecurityGroupIds: [!Ref AppSg]
+      Tags: [{Key: Name, Value: app-01-bko-portail}]
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Condition: Portal
+    DependsOn: InternetRoute
+    Properties:
+      Scheme: internet-facing
+      Subnets: [!Ref PublicA, !Ref PublicB]
+      SecurityGroups: [!Ref AlbSg]
+      Tags: [{Key: Name, Value: alb-prod-leman-bko}]
+  WebTargets:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: Portal
+    Properties:
+      VpcId: !Ref Vpc
+      Protocol: HTTP
+      Port: 80
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Targets:
+        - Id: !Ref Web
+        - !If [Backup, {Id: !Ref Web2}, !Ref AWS::NoValue]
+      Tags: [{Key: Name, Value: tg-web-bko}]
+  AppTargets:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: Portal
+    Properties:
+      VpcId: !Ref Vpc
+      Protocol: HTTP
+      Port: 8080
+      HealthCheckPath: /api/health
+      HealthCheckIntervalSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Targets: [{Id: !Ref App}]
+      Tags: [{Key: Name, Value: tg-app-bko}]
+  Http:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: HttpActive
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - !If
+          - RequireOriginHeader
+          - Type: fixed-response
+            FixedResponseConfig: {StatusCode: '403', ContentType: text/plain, MessageBody: Origin access denied}
+          - {Type: forward, TargetGroupArn: !Ref WebTargets}
+  Https:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: Tls
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Port: 443
+      Protocol: HTTPS
+      Certificates: [{CertificateArn: !Ref CertificateArn}]
+      DefaultActions:
+        - !If
+          - RequireOriginHeader
+          - Type: fixed-response
+            FixedResponseConfig: {StatusCode: '403', ContentType: text/plain, MessageBody: Origin access denied}
+          - {Type: forward, TargetGroupArn: !Ref WebTargets}
+  HttpApi:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: HttpActive
+    Properties:
+      ListenerArn: !Ref Http
+      Priority: 10
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig: {Values: ['/api/*']}
+        - !If
+          - RequireOriginHeader
+          - Field: http-header
+            HttpHeaderConfig: {HttpHeaderName: X-Leman-Origin, Values: [!Ref OriginHeader]}
+          - !Ref AWS::NoValue
+      Actions: [{Type: forward, TargetGroupArn: !Ref AppTargets}]
+  HttpsApi:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: Tls
+    Properties:
+      ListenerArn: !Ref Https
+      Priority: 10
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig: {Values: ['/api/*']}
+        - !If
+          - RequireOriginHeader
+          - Field: http-header
+            HttpHeaderConfig: {HttpHeaderName: X-Leman-Origin, Values: [!Ref OriginHeader]}
+          - !Ref AWS::NoValue
+      Actions: [{Type: forward, TargetGroupArn: !Ref AppTargets}]
+  HttpWeb:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: HttpActive
+    Properties:
+      ListenerArn: !Ref Http
+      Priority: 20
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig: {Values: ['/*']}
+        - !If
+          - RequireOriginHeader
+          - Field: http-header
+            HttpHeaderConfig: {HttpHeaderName: X-Leman-Origin, Values: [!Ref OriginHeader]}
+          - !Ref AWS::NoValue
+      Actions: [{Type: forward, TargetGroupArn: !Ref WebTargets}]
+  HttpsWeb:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: Tls
+    Properties:
+      ListenerArn: !Ref Https
+      Priority: 20
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig: {Values: ['/*']}
+        - !If
+          - RequireOriginHeader
+          - Field: http-header
+            HttpHeaderConfig: {HttpHeaderName: X-Leman-Origin, Values: [!Ref OriginHeader]}
+          - !Ref AWS::NoValue
+      Actions: [{Type: forward, TargetGroupArn: !Ref WebTargets}]
+Outputs:
+  VpcId: {Value: !Ref Vpc}
+  AlbSg: {Value: !Ref AlbSg}
+  AlbDns: {Condition: Portal, Value: !GetAtt Alb.DNSName}
+  AlbZone: {Condition: Portal, Value: !GetAtt Alb.CanonicalHostedZoneID}
+  AlbFullName: {Condition: Portal, Value: !GetAtt Alb.LoadBalancerFullName}
+  WebTargetsFullName: {Condition: Portal, Value: !GetAtt WebTargets.TargetGroupFullName}
+  WebTargetsArn: {Condition: Portal, Value: !Ref WebTargets}
+  AppTargetsArn: {Condition: Portal, Value: !Ref AppTargets}
+  WebId: {Condition: Portal, Value: !Ref Web}

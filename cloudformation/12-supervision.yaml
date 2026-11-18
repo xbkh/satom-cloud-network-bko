@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Métriques ALB et CloudFront, alarme SNS et VPC Flow Logs.
+Parameters:
+  VpcId: {Type: 'AWS::EC2::VPC::Id'}
+  AlbFullName: {Type: String}
+  WebTargetsFullName: {Type: String}
+  DistributionId: {Type: String, Default: ''}
+  NotificationEmail: {Type: String, Default: '', NoEcho: true}
+Conditions:
+  HasDistribution: !Not [!Equals [!Ref DistributionId, '']]
+  HasEmail: !Not [!Equals [!Ref NotificationEmail, '']]
+Resources:
+  Topic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: sns-exploitation-leman-bko
+      Tags: [{Key: Equipe, Value: bko}]
+  NotificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: alarme-leman-bko
+      MessageRetentionPeriod: 3600
+      SqsManagedSseEnabled: true
+  QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref NotificationQueue]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: sns.amazonaws.com}
+            Action: sqs:SendMessage
+            Resource: !GetAtt NotificationQueue.Arn
+            Condition:
+              ArnEquals: {aws:SourceArn: !Ref Topic}
+  NotificationSubscription:
+    Type: AWS::SNS::Subscription
+    DependsOn: QueuePolicy
+    Properties:
+      Endpoint: !GetAtt NotificationQueue.Arn
+      Protocol: sqs
+      TopicArn: !Ref Topic
+      RawMessageDelivery: true
+  Mail:
+    Type: AWS::SNS::Subscription
+    Condition: HasEmail
+    Properties: {Protocol: email, Endpoint: !Ref NotificationEmail, TopicArn: !Ref Topic}
+  Alarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: alarm-5xx-portail-bko
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions: [{Name: LoadBalancer, Value: !Ref AlbFullName}]
+      Statistic: Sum
+      Period: 300
+      Threshold: 5
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      TreatMissingData: notBreaching
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions: [!Ref Topic]
+      OKActions: [!Ref Topic]
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: db-portail-leman-bko
+      DashboardBody: !Sub
+        - |
+          {"widgets":[
+            {"type":"metric","x":0,"y":0,"width":12,"height":6,"properties":{"title":"Cibles web","region":"${AWS::Region}","period":60,"metrics":[["AWS/ApplicationELB","HealthyHostCount","LoadBalancer","${AlbFullName}","TargetGroup","${WebTargetsFullName}"],["AWS/ApplicationELB","UnHealthyHostCount","LoadBalancer","${AlbFullName}","TargetGroup","${WebTargetsFullName}"]]}},
+            {"type":"metric","x":12,"y":0,"width":12,"height":6,"properties":{"title":"Latence des cibles","region":"${AWS::Region}","period":60,"metrics":[["AWS/ApplicationELB","TargetResponseTime","LoadBalancer","${AlbFullName}"]]}},
+            {"type":"metric","x":0,"y":6,"width":12,"height":6,"properties":{"title":"Erreurs 5xx des cibles","region":"${AWS::Region}","period":300,"stat":"Sum","metrics":[["AWS/ApplicationELB","HTTPCode_Target_5XX_Count","LoadBalancer","${AlbFullName}"]]}}${CloudFrontWidget}
+          ]}
+        - CloudFrontWidget: !If
+            - HasDistribution
+            - !Sub ',{"type":"metric","x":12,"y":6,"width":12,"height":6,"properties":{"title":"Erreurs CloudFront","region":"us-east-1","period":60,"metrics":[["AWS/CloudFront","5xxErrorRate","DistributionId","${DistributionId}","Region","Global"]]}}'
+            - ''
+  FlowLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /leman/vpc-prod-bko/flow
+      RetentionInDays: 3
+      Tags: [{Key: Equipe, Value: bko}]
+  FlowRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: vpc-flow-logs.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {aws:SourceAccount: !Ref 'AWS::AccountId'}
+              ArnLike: {aws:SourceArn: !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:vpc-flow-log/*'}
+      Policies:
+        - PolicyName: journal-flux-leman-bko
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+                Resource: !GetAtt FlowLogGroup.Arn
+              - Effect: Allow
+                Action: logs:DescribeLogGroups
+                Resource: '*'
+  FlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowRole.Arn
+      LogDestinationType: cloud-watch-logs
+      LogGroupName: !Ref FlowLogGroup
+      ResourceId: !Ref VpcId
+      ResourceType: VPC
+      TrafficType: ALL
+      MaxAggregationInterval: 60
+      Tags: [{Key: Name, Value: fl-vpc-prod-leman-bko}]
+Outputs:
+  NotificationQueueUrl: {Value: !Ref NotificationQueue}

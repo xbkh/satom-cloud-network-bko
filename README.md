@@ -1,5 +1,7 @@
 # Satom Cloud Network — Groupe Léman Finance
 
+[Rapport de réalisation · modules 0 à 13 et glossaire](RAPPORT.md)
+
 Projet du cours AWS E3. La région du lab est Stockholm (`eu-north-1`). Les ressources sont définies dans CloudFormation et les changements sont versionnés dans Git.
 
 Les noms de ressources prennent le suffixe `_bko`. Pour les services dont le nom interdit le caractère souligné, utiliser `-bko`, comme pour la stack CloudFormation. Les tags obligatoires du cours gardent leurs valeurs, dont le nom exact de l’équipe.
@@ -656,3 +658,100 @@ Le [script des modules 7 et 8](modules/07-vpn/simulation/lab.py) s'exécute sur 
 Après les vérifications, les stacks `satom-leman-sites-bko` et `satom-leman-vpn-bko` ont été supprimées dans cet ordre. AWS confirme qu’aucun des deux VPN du TP ne reste provisionné. Les templates permettent de recréer les VPN et leur routage au module 13. La Transit Gateway, le DXGW et son association sont conservés pour la suite. [Tarification AWS Site-to-Site VPN](https://aws.amazon.com/vpn/pricing/).
 
 ![Vérification AWS après suppression des stacks VPN et routage des sites](modules/07-vpn/08-nettoyage.png)
+
+## Module 9 · Application Load Balancer
+
+Le [template du portail](cloudformation/reseau-leman.yaml) crée le sous-réseau public en seconde zone, un ALB public, deux cibles web sur TCP 80 et une cible d’API sur TCP 8080 dans le sous-réseau privé. Les contrôles de santé utilisent `/health` pour le web et `/api/health` pour l’API. La règle de priorité 10 dirige `/api/*` vers l’API. Un certificat auto-signé importé dans ACM permet de tester le listener 443. Le client de test lui fait explicitement confiance et vérifie le nom du portail.
+
+**Contrôle des deux zones et des réponses HTTPS du web et de l’API.**
+
+![Sous-réseaux et vérifications HTTPS](modules/09-alb/01-cibles-https.png)
+
+**Arrêt de web-01.** La cible web de secours a répondu. Une autre requête a expiré pendant l’essai. Les deux cibles sont revenues à `healthy` après le redémarrage. Une deuxième vérification via CloudFront a obtenu cinq réponses de la cible de secours sur six requêtes. Une requête a expiré. La continuité sans interruption reste à valider.
+
+![Panne d’une cible et retour aux deux cibles saines](modules/09-alb/02-panne-web.png)
+![Deuxième test via CloudFront lors d’un arrêt de web-01](modules/09-alb/03-contre-epreuve.png)
+
+Diagnostic. Vérifier le listener, la règle de chemin, le contrôle de santé des cibles, puis les groupes de sécurité de l’ALB et des cibles.
+
+## Module 10 · Route 53
+
+Le [template DNS](cloudformation/10-route53.yaml) associe `prod.leman.internal` au VPC et crée les enregistrements internes du web et de l’API. La zone de démonstration `leman-finance.example` associe le portail à l’ALB, puis à CloudFront. Pendant le test de bascule, l’alias primaire utilise un contrôle de santé HTTPS et le secondaire renvoie `203.0.113.50`.
+
+**Résultat du résolveur interne, arrêt des cibles et bascule auprès d’un serveur Route 53.** Le domaine `.example` est réservé à la documentation. Le test a interrogé un serveur faisant autorité directement. La bascule a été vérifiée dans les réponses DNS. L’adresse secondaire représente la page de maintenance du scénario.
+
+![Résolution privée et bascule DNS](modules/10-route53/01-bascule-dns.png)
+
+**Alias primaire mis à jour vers CloudFront.** La mise à jour conserve le secondaire et vérifie le primaire sur le nom CloudFront en HTTPS.
+
+![Vérification de l’alias vers CloudFront](modules/10-route53/02-alias-cloudfront.png)
+
+Diagnostic. Vérifier la délégation NS pour un domaine réel, l’enregistrement et la cible de l’alias, l’état du contrôle de santé, puis l’état des cibles de l’ALB.
+
+## Module 11 · CloudFront
+
+Le [template CloudFront](cloudformation/11-cloudfront.yaml) utilise le nom et le certificat AWS de la distribution pour le lab. La connexion utilisateur est en HTTPS. L’origine ALB utilise HTTP dans cet essai, car CloudFront exige un certificat reconnu pour une origine HTTPS. Pour un vrai domaine, le template permet de renseigner un certificat ACM en `us-east-1` pour l’alias public, et une origine HTTPS avec un certificat valide pour son nom.
+
+| Chemin | Cache | Requête vers l’origine |
+| --- | --- | --- |
+| Par défaut | Désactivé | En-têtes, cookies et paramètres transmis |
+| `/static/*` | TTL de 86 400 s | Compression, sans cookies |
+| `/api/*` | Désactivé | En-têtes, cookies et paramètres transmis, méthodes HTTP prises en charge par CloudFront |
+
+**Validation des chemins.** La seconde demande du fichier statique obtient un `Hit` et les deux appels à l’API obtiennent un `Miss`.
+
+![Statut de la distribution et en-têtes du cache](modules/11-cloudfront/01-cache.png)
+
+![Réponse de l’API via le nom CloudFront dans le navigateur](modules/11-cloudfront/02-api-navigateur.png)
+
+**Accès à l’origine et invalidation.** L’ALB n’accepte que le préfixe réseau géré de CloudFront et les requêtes portant l’en-tête d’origine attendu. L’accès direct sur les ports 80 et 443 expire, tandis que l’API reste accessible via CloudFront. Après invalidation, la requête du fichier statique répond 200 avec `Miss`. Le test vérifie la purge du cache, puis la récupération du fichier depuis l’origine.
+
+![Blocage de l’accès direct et vérification après invalidation](modules/11-cloudfront/03-origine.png)
+
+Diagnostic. Contrôler l’en-tête d’origine et les règles de l’ALB pour un 403. Pour un 502, examiner la connexion à l’origine, son port et le certificat en HTTPS. Lire `X-Cache` pour comprendre le comportement du cache.
+
+## Module 12 · CloudWatch, SNS et VPC Flow Logs
+
+Le [template de supervision](cloudformation/12-supervision.yaml) crée un tableau de bord, une alarme et des journaux réseau conservés trois jours. L’alarme évalue le nombre de réponses 5xx **produites par les cibles de l’ALB**. Deux périodes consécutives de cinq minutes au-dessus de cinq erreurs déclenchent une notification. Le lab reçoit les notifications SNS dans une file SQS. Un abonnement e-mail peut être configuré avec une adresse confirmée.
+
+**Métriques réelles du groupe web.** La courbe passe de deux à zéro cibles saines pendant l’arrêt des deux serveurs web du module 10, puis revient à deux après leur redémarrage.
+
+![Configuration et contrôle des quatre widgets](modules/12-supervision/01-tableau-de-bord.png)
+![Graphique des cibles exporté de CloudWatch](modules/12-supervision/02-metriques-aws.png)
+
+**Déclenchement et retour à la normale.** Les erreurs 500 volontaires font passer l’alarme à `ALARM`. La file SQS reçoit la notification SNS. Le service répond toujours sur son endpoint de santé et l’alarme repasse à `OK` lorsque le volume d’erreurs repasse sous le seuil.
+
+![Déclenchement CloudWatch et notification SNS reçue](modules/12-supervision/03-alarme-sns.png)
+![Historique CloudWatch et retour à OK](modules/12-supervision/05-retour-ok.png)
+
+**Rejet du port SSH.** L’API de test déclenche depuis `app-01` une tentative sur TCP 22 vers `web-01`. Logs Insights compte trois rejets et leur détail confirme la source, la destination, le port et l’action.
+
+![Rejets réseau du test retrouvés dans CloudWatch Logs](modules/12-supervision/04-rejets.png)
+
+Diagnostic. Vérifier la métrique et ses dimensions, lire la raison du changement d’état de l’alarme, chercher le flux concerné dans Logs Insights, puis examiner le Security Group et la NACL.
+
+## Module 13 · Infrastructure reproductible
+
+Le [template final en YAML](cloudformation/reseau-leman.yaml) commence par une stack réseau. Le paramètre `DeployPortal=true` ajoute les instances, l’ALB, les cibles et les listeners. Les plages de sous-réseaux et les IP fixes sont paramétrables. Ce lab utilise un VPC isolé pour tester une suppression complète.
+
+**Validation et création du réseau.**
+
+![Création de la stack réseau](modules/13-cloudformation/01-reseau.png)
+
+**Relecture de la change set.** Elle ajoute les composants du portail et modifie le groupe de sécurité ALB pour le listener HTTPS. Aucun remplacement ni retrait.
+
+![Change set et déploiement du portail](modules/13-cloudformation/02-change-set.png)
+
+**Test du drift.** L’ajout manuel via la CLI d’une règle fictive sur TCP 8443 fait passer la stack à `DRIFTED`. Le retrait de la règle rétablit `IN_SYNC`.
+
+![Détection de l’écart et remise en conformité](modules/13-cloudformation/03-drift.png)
+
+**Recréation.** Après suppression, le même fichier YAML a recréé le VPC, les écouteurs et les cibles. Le nouveau VPC a un identifiant différent. L’API répond de nouveau en HTTPS et le fichier statique a été vérifié comme PNG.
+
+![Suppression et recréation du portail depuis le YAML](modules/13-cloudformation/04-recreation.png)
+
+Diagnostic. Lire l’état de la stack, examiner le premier événement en échec, vérifier les écarts avec le template, puis traiter la cause avant une nouvelle exécution ou un rollback.
+
+**Bilan du nettoyage.** Les stacks DNS, CloudFront, supervision et portail du lab sont supprimées. Le certificat auto-signé importé dans ACM a été retiré après le dernier essai. Les stacks de référence des premiers modules sont toujours présentes. Le NAT, les attachements Transit Gateway, certaines adresses publiques et les volumes des instances arrêtées peuvent continuer à générer des frais.
+
+![Vérification du retrait final et liste des stacks de référence](modules/13-cloudformation/05-nettoyage.png)
