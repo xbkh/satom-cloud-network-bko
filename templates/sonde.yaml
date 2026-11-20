@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Sonde interne de validation opérée par AWS Systems Manager.
+Parameters:
+  VpcId: {Type: 'AWS::EC2::VPC::Id'}
+  SubnetId: {Type: 'AWS::EC2::Subnet::Id'}
+  ProfileName: {Type: String}
+  TestAlbGroup: {Type: 'AWS::EC2::SecurityGroup::Id'}
+  Ami:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+Resources:
+  ProbeGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Sonde sans connexion entrante, HTTPS sortant vers SSM
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: '0.0.0.0/0'}
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, DestinationSecurityGroupId: !Ref TestAlbGroup}
+  Probe:
+    Type: AWS::EC2::Instance
+    Properties:
+      IamInstanceProfile: !Ref ProfileName
+      ImageId: !Ref Ami
+      InstanceType: t3.micro
+      CreditSpecification: {CPUCredits: standard}
+      MetadataOptions: {HttpTokens: required}
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: {Encrypted: true, DeleteOnTermination: true, VolumeType: gp3}
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: '0'
+          DeleteOnTermination: true
+          GroupSet: [!Ref ProbeGroup]
+          SubnetId: !Ref SubnetId
+      Tags: [{Key: Name, Value: sonde-devsecops-bko}]
+Outputs:
+  ProbeId: {Value: !Ref Probe}

@@ -1,0 +1,1 @@
+# Le portail utilise la bibliothèque standard de Python.
