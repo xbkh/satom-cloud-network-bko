@@ -31,6 +31,13 @@ class AdaptateurTest(unittest.TestCase):
     def test_alb_only_accepts_reads(self):
         self.assertEqual(self.request("/", "POST")["statusCode"], 405)
 
+    def test_alb_browser_representation(self):
+        with redirect_stdout(StringIO()):
+            response = handler({"path": "/", "headers": {"Accept": "text/html"}}, None)
+        self.assertEqual(response["headers"]["Content-Type"], "text/html; charset=utf-8")
+        self.assertEqual(response["headers"]["Vary"], "Accept")
+        self.assertIn("web-01_bko", response["body"])
+
 
 if __name__ == "__main__":
     unittest.main()

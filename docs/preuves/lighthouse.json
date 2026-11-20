@@ -1,0 +1,6 @@
+{
+  "outil": "Lighthouse 12.8.2",
+  "cible": "Accueil HTML du portail sur 127.0.0.1",
+  "performance": 100,
+  "accessibilite": 100
+}

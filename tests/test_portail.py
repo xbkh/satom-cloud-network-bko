@@ -16,7 +16,7 @@ DIAG_WEB = PortalConfig(WEB.local_ip, WEB.primary_web_ip, WEB.app_ip, diagnostic
 
 
 class PortalTest(unittest.TestCase):
-    def request(self, config, path, method="GET"):
+    def request(self, config, path, method="GET", request_headers=None):
         with make_server(("127.0.0.1", 0), config) as server:
             runner = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01})
             runner.start()
@@ -24,7 +24,7 @@ class PortalTest(unittest.TestCase):
                 with redirect_stdout(StringIO()) as log:
                     conn = http.client.HTTPConnection(*server.server_address, timeout=2)
                     try:
-                        conn.request(method, path)
+                        conn.request(method, path, headers=request_headers or {})
                         result = conn.getresponse()
                         response = result.status, dict(result.getheaders()), result.read()
                     finally:
@@ -50,6 +50,16 @@ class PortalTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(b"app-01_bko OK", body)
         self.assertEqual(headers["Cache-Control"], "no-store")
+
+    def test_web_browser_representation(self):
+        status, headers, body = self.request(WEB, "/", request_headers={"Accept": "text/html, */*"})
+        self.assertEqual((status, headers["Vary"]), (200, "Accept"))
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+        self.assertIn(b'<html lang="fr">', body)
+        self.assertIn(b'<a href="/api/health">', body)
+        for disabled in ("text/html;q=0", "text/html;q=incorrect"):
+            text = self.request(WEB, "/", request_headers={"Accept": disabled})
+            self.assertEqual(text[2], b"web-01_bko\n")
 
     def test_static_head_and_get(self):
         for method, expected in [("GET", LOGO), ("HEAD", b"")]:

@@ -14,6 +14,7 @@ LOGO = base64.b64decode(
     "BrQGtAa0BrQGtAa0BrQGtAa0BrQGtAa0BrQGtAa0BrQGtAa0D4CBAFDmwGDrAAAAABJRU5ErkJggg=="
 )
 TEXT = "text/plain; charset=utf-8"
+HTML = "text/html; charset=utf-8"
 NO_CACHE = "no-store"
 
 
@@ -53,6 +54,43 @@ def web_route(path, config):
     return 404, "Page inconnue"
 
 
+def home_content(node, accept):
+    for item in accept.split(","):
+        media, *parameters = item.split(";")
+        if media.strip().lower() != "text/html":
+            continue
+        quality = "1"
+        for parameter in parameters:
+            key, _, value = parameter.partition("=")
+            if key.strip().lower() == "q":
+                quality = value
+                break
+        try:
+            if 0 < float(quality) <= 1:
+                break
+        except ValueError:
+            continue
+    else:
+        return node + "\n", TEXT
+
+    return f"""<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portail Léman Finance</title>
+</head>
+<body>
+  <main>
+    <h1>Portail Léman Finance</h1>
+    <p>Serveur web <strong>{node}</strong></p>
+    <p><a href="/api/health">Vérifier l’état de l’API</a></p>
+  </main>
+</body>
+</html>
+""", HTML
+
+
 def make_server(address, config):
     is_app = config.local_ip == config.app_ip
 
@@ -66,10 +104,15 @@ def make_server(address, config):
                 status, content, media_type, cache = 200, LOGO, "image/png", "public, max-age=86400"
             else:
                 status, message = api_route(path, config) if is_app else web_route(path, config)
-                content, media_type, cache = (message + "\n").encode(), TEXT, NO_CACHE
+                representation, media_type = message + "\n", TEXT
+                if not is_app and path == "/":
+                    representation, media_type = home_content(message, self.headers.get("Accept", ""))
+                content, cache = representation.encode(), NO_CACHE
             self.send_response(status)
             self.send_header("Content-Type", media_type)
             self.send_header("Cache-Control", cache)
+            if not is_app and path == "/":
+                self.send_header("Vary", "Accept")
             self.send_header("Content-Length", str(len(content)))
             self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()

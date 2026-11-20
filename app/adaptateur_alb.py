@@ -5,7 +5,15 @@ import json
 from http import HTTPStatus
 from urllib.parse import urlsplit
 
-from app.portail import LOGO, NO_CACHE, TEXT, PortalConfig, api_route, web_route
+from app.portail import (
+    LOGO,
+    NO_CACHE,
+    TEXT,
+    PortalConfig,
+    api_route,
+    home_content,
+    web_route,
+)
 
 DEMO = PortalConfig("Lambda dev", "Lambda dev", "Lambda dev")
 
@@ -23,16 +31,25 @@ def handler(event, _context):
         status, message = web_route(path, DEMO)
     binary = status == 200 and path == "/static/logo.png" and method == "GET"
     image = status == 200 and path == "/static/logo.png"
-    body = base64.b64encode(LOGO).decode("ascii") if binary else message + "\n"
+    body, media_type = message + "\n", TEXT
+    if image:
+        media_type = "image/png"
+        if binary:
+            body = base64.b64encode(LOGO).decode("ascii")
+    headers = {
+        "Content-Type": media_type,
+        "Cache-Control": "public, max-age=86400" if image else NO_CACHE,
+        "X-Content-Type-Options": "nosniff",
+    }
+    if status == 200 and path == "/":
+        request_headers = {key.lower(): value for key, value in (event.get("headers") or {}).items()}
+        body, headers["Content-Type"] = home_content(message, request_headers.get("accept", ""))
+        headers["Vary"] = "Accept"
     print(json.dumps({"event": "http_request", "method": method, "status": status, "path": path}))
     return {
         "statusCode": status,
         "statusDescription": f"{status} {HTTPStatus(status).phrase}",
-        "headers": {
-            "Content-Type": "image/png" if image else TEXT,
-            "Cache-Control": "public, max-age=86400" if image else NO_CACHE,
-            "X-Content-Type-Options": "nosniff",
-        },
+        "headers": headers,
         "isBase64Encoded": binary,
         "body": "" if method == "HEAD" else body,
     }

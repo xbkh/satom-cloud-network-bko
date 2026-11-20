@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "templates" / "dev-sans-ec2.yaml"
 BLOCK = re.compile(r"(          # BEGIN APPLICATION\n).*?(?=^          # END APPLICATION$)", re.MULTILINE | re.DOTALL)
+PORTAL_IMPORT = re.compile(r"^from app\.portail import (?:\([\s\S]*?^\)|[^\n]+)\n", re.MULTILINE)
 
 
 def main():
@@ -16,9 +17,10 @@ def main():
     portail = (ROOT / "app" / "portail.py").read_text(encoding="utf-8")
     portail = portail.rsplit('if __name__ == "__main__":', 1)[0].rstrip()
     adapter = (ROOT / "app" / "adaptateur_alb.py").read_text(encoding="utf-8")
+    adapter = PORTAL_IMPORT.sub("", adapter)
     adapter = "\n".join(line for line in adapter.splitlines() if not (
         line in ("import base64", "import json", "from urllib.parse import urlsplit")
-        or line.startswith(("from app.portail import ", '"""'))
+        or line.startswith('"""')
     )).strip()
     code = "".join((" " * 10 + line if line else "") + "\n" for line in (
         portail + "\n\n" + adapter
