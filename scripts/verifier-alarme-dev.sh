@@ -27,6 +27,7 @@ jq -e '.Stacks[0] |
 ' <<<"$config" >/dev/null
 probe=$(output "$sonde" ProbeId)
 alb=$(output "$dev" AlbDns)
+alb=${alb,,}
 [[ "$probe" =~ ^i-[a-f0-9]+$ && "$alb" =~ ^internal-[a-z0-9.-]+\.elb\.amazonaws\.com$ ]]
 
 command_id=

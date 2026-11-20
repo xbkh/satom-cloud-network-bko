@@ -8,13 +8,20 @@ output() {
 }
 probe=$(output satom-leman-ci-sonde-bko ProbeId)
 alb=$(output satom-leman-ci-dev-bko AlbDns)
-[[ "$probe" =~ ^i-[a-f0-9]+$ && "$alb" =~ ^internal-[a-z0-9.-]+\.elb\.amazonaws\.com$ ]]
+alb=${alb,,}
+if [[ ! "$probe" =~ ^i-[a-f0-9]+$ || ! "$alb" =~ ^internal-[a-z0-9.-]+\.elb\.amazonaws\.com$ ]]; then
+  echo 'La sonde EC2 ou l’adresse DNS interne de la stack dev est indisponible.' >&2
+  exit 1
+fi
 for _ in {1..36}; do
   connected=$(aws ssm describe-instance-information --filters "Key=InstanceIds,Values=$probe" --query 'InstanceInformationList[0].PingStatus' --output text)
   [[ "$connected" == Online ]] && break
   sleep 5
 done
-[[ "$connected" == Online ]]
+if [[ "$connected" != Online ]]; then
+  echo 'La sonde dédiée ne s’est pas enregistrée auprès de Systems Manager.' >&2
+  exit 1
+fi
 [[ "${LEMAN_LOAD:-true}" =~ ^(true|false)$ ]]
 parameters=$(python3 - "$alb" "${LEMAN_LOAD:-true}" <<'PY'
 import base64, json, pathlib, shlex, sys
