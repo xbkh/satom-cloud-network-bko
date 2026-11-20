@@ -1,0 +1,9 @@
+{
+  "environnement": "dev",
+  "metrique": "HTTPCode_Target_5XX_Count",
+  "notification": "ALARM",
+  "etat_precedent": "OK",
+  "horodatage_alarme": "2026-11-20T17:25:43.196+0000",
+  "secondes_depuis_injection": 256,
+  "seuil_moins_de_cinq_minutes": true
+}

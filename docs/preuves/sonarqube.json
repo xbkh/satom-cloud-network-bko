@@ -1,12 +1,12 @@
 {
-  "alert_status": "OK",
   "blocker_violations": "0",
-  "coverage": "94.4",
-  "critical_violations": "0",
-  "duplicated_lines_density": "0.0",
+  "coverage": "96.1",
+  "alert_status": "OK",
   "reliability_rating": "1.0",
-  "security_hotspots": "0",
+  "duplicated_lines_density": "0.0",
   "security_rating": "1.0",
   "sqale_debt_ratio": "0.0",
+  "security_hotspots": "0",
+  "critical_violations": "0",
   "sqale_rating": "1.0"
 }

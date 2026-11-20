@@ -1,0 +1,22 @@
+{
+  "outil": "ZAP",
+  "version": "2.17.0",
+  "environnement": "ALB dev EC2 via sonde SSM",
+  "perimetre": [
+    "/",
+    "/api/health",
+    "/static/logo.png"
+  ],
+  "alertes_elevees": 0,
+  "alertes_moyennes": 0,
+  "alertes_faibles": [
+    {
+      "nom": "Private IP Disclosure",
+      "occurrences": 1
+    },
+    {
+      "nom": "Server Leaks Version Information via \"Server\" HTTP Response Header Field",
+      "occurrences": 3
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "timestamp_utc": "2026-11-20T17:24:43Z",
+  "cible": "/static/logo.png",
+  "methode": "10 requêtes HEAD d’un poste externe",
+  "requetes": 10,
+  "hits": 10,
+  "misses": 0,
+  "hit_pct": 100
+}

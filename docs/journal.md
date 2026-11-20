@@ -24,9 +24,9 @@ La chaîne vérifie la cohérence des templates, le code, les règles IaC, l’a
 
 | Indicateur | Mesure pendant la session |
 | --- | --- |
-| Fréquence de déploiement | Deux déploiements réussis de la variante Lambda en dev, dont la reconstruction. Zéro promotion en prod. |
+| Fréquence de déploiement | Deux créations des stacks Lambda, puis trois créations des stacks EC2 Spot. La troisième a validé la chaîne GitHub et k6. Zéro promotion prod. |
 | Délai commit → prod | Indisponible en l’absence de promotion. |
-| Échecs de changement | Deux tentatives avec portail EC2 ont déclenché un rollback, sur quota VPC puis vCPU. Les deux opérations Lambda ont été vérifiées. |
+| Échecs de changement | Deux tentatives EC2 ont déclenché un rollback, sur quota VPC puis vCPU. Le premier essai Spot a créé les stacks puis a été interrompu par un contrôle DNS. Une relance a échoué au démarrage du navigateur en CI avant toute création AWS. Les corrections et le dernier test Spot sont versionnés. |
 | MTTR | Indisponible en l’absence d’incident prod chronométré. |
 
 Pour ajouter les prochaines mesures DORA, utiliser les heures effectives des déploiements GitHub pour la fréquence et le délai, les déploiements ayant nécessité un correctif pour le taux d’échec, et les horodatages de l’alarme et du retour à la normale pour le MTTR. L’exercice de reconstruction mesure un RTO de lab distinct.

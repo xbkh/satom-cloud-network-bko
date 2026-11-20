@@ -1,6 +1,22 @@
 {
   "outil": "Lighthouse 12.8.2",
   "cible": "Accueil HTML du portail sur 127.0.0.1",
+  "profil": "Ordinateur",
+  "agregation": "médiane de trois audits",
   "performance": 100,
-  "accessibilite": 100
+  "accessibilite": 100,
+  "audits": [
+    {
+      "performance": 100,
+      "accessibilite": 100
+    },
+    {
+      "performance": 100,
+      "accessibilite": 100
+    },
+    {
+      "performance": 100,
+      "accessibilite": 100
+    }
+  ]
 }
