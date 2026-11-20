@@ -27,14 +27,23 @@ port=$(head -n 1 "$work/server.log")
 [[ "$port" =~ ^[0-9]+$ ]]
 
 export CHROME_PATH="${CHROME_PATH:-$(command -v google-chrome)}"
-npx --yes lighthouse@12.8.2 "http://127.0.0.1:$port/" \
-  --only-categories=performance,accessibility --output=json \
-  --output-path="$work/lighthouse.json" \
-  --chrome-flags='--headless=new --disable-dev-shm-usage' --quiet
-jq -e '{
-  outil: ("Lighthouse " + .lighthouseVersion),
-  cible: "Accueil HTML du portail sur 127.0.0.1",
-  performance: (.categories.performance.score * 100 | round),
-  accessibilite: (.categories.accessibility.score * 100 | round)
-}' "$work/lighthouse.json" | tee "$report_dir/lighthouse.json"
+for run in 1 2 3; do
+  npx --yes lighthouse@12.8.2 "http://127.0.0.1:$port/" \
+    --only-categories=performance,accessibility --output=json \
+    --output-path="$work/audit-$run.json" \
+    --chrome-flags='--headless=new --disable-dev-shm-usage' --quiet
+done
+jq -se '
+  [.[] | {
+    performance: (.categories.performance.score * 100 | round),
+    accessibilite: (.categories.accessibility.score * 100 | round)
+  }] as $scores |
+  {
+    outil: ("Lighthouse " + .[0].lighthouseVersion),
+    cible: "Accueil HTML du portail sur 127.0.0.1",
+    agregation: "médiane de trois audits",
+    performance: ($scores | map(.performance) | sort | .[1]),
+    accessibilite: ($scores | map(.accessibilite) | sort | .[1]),
+    audits: $scores
+  }' "$work"/audit-*.json | tee "$report_dir/lighthouse.json"
 jq -e '.performance >= 85 and .accessibilite >= 90' "$report_dir/lighthouse.json" >/dev/null
