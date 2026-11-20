@@ -11,20 +11,26 @@ Parameters:
     Type: Number
     Default: 300
     AllowedValues: [60, 300]
+  NameSuffix: {Type: String, Default: bko, AllowedPattern: '[a-z0-9-]+'}
+  DeployVpcObservability:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
 Conditions:
   HasDistribution: !Not [!Equals [!Ref DistributionId, '']]
   HasEmail: !Not [!Equals [!Ref NotificationEmail, '']]
   HasFlowLogsKey: !Not [!Equals [!Ref FlowLogsKeyArn, '']]
+  WithVpcObservability: !Equals [!Ref DeployVpcObservability, 'true']
 Resources:
   Topic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: sns-exploitation-leman-bko
+      TopicName: !Sub sns-exploitation-leman-${NameSuffix}
       Tags: [{Key: Equipe, Value: bko}]
   NotificationQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: alarme-leman-bko
+      QueueName: !Sub alarme-leman-${NameSuffix}
       MessageRetentionPeriod: 3600
       SqsManagedSseEnabled: true
   QueuePolicy:
@@ -55,7 +61,7 @@ Resources:
   Alarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: alarm-5xx-portail-bko
+      AlarmName: !Sub alarm-5xx-portail-${NameSuffix}
       Namespace: AWS/ApplicationELB
       MetricName: HTTPCode_Target_5XX_Count
       Dimensions: [{Name: LoadBalancer, Value: !Ref AlbFullName}]
@@ -70,8 +76,9 @@ Resources:
       OKActions: [!Ref Topic]
   Dashboard:
     Type: AWS::CloudWatch::Dashboard
+    Condition: WithVpcObservability
     Properties:
-      DashboardName: db-portail-leman-bko
+      DashboardName: !Sub db-portail-leman-${NameSuffix}
       DashboardBody: !Sub
         - |
           {"widgets":[
@@ -85,6 +92,7 @@ Resources:
             - ''
   FlowLogGroup:
     Type: AWS::Logs::LogGroup
+    Condition: WithVpcObservability
     Properties:
       LogGroupName: /leman/vpc-prod-bko/flow
       KmsKeyId: !If [HasFlowLogsKey, !Ref FlowLogsKeyArn, !Ref 'AWS::NoValue']
@@ -92,6 +100,7 @@ Resources:
       Tags: [{Key: Equipe, Value: bko}]
   FlowRole:
     Type: AWS::IAM::Role
+    Condition: WithVpcObservability
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -115,6 +124,7 @@ Resources:
                 Resource: '*'
   FlowLog:
     Type: AWS::EC2::FlowLog
+    Condition: WithVpcObservability
     Properties:
       DeliverLogsPermissionArn: !GetAtt FlowRole.Arn
       LogDestinationType: cloud-watch-logs

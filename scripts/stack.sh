@@ -21,6 +21,9 @@ stack="satom-leman-ci-$environment-bko"
 mapfile -t params < <(python3 -c 'import json,sys; print("\n".join(f"{k}={v}" for k,v in json.load(open(sys.argv[1],encoding="utf-8")).items()))' "parameters/$environment.json")
 (( ${#params[@]} >= 9 ))
 if [[ "$environment" == dev && -n "${DEV_VPC_ID:-}" ]]; then params+=("ExistingVpcId=$DEV_VPC_ID"); fi
+if [[ "$environment" == dev && "${LEMAN_DEV_ALARM:-false}" == true ]]; then
+  params=("${params[@]/LabDiagnostics=false/LabDiagnostics=true}")
+fi
 deploy "$stack" cloudformation/reseau-leman.yaml "${params[@]}"
 if [[ "$environment" == dev && -n "${PROBE_PROFILE_NAME:-}" ]]; then
   output() {
