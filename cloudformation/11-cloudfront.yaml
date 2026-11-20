@@ -7,6 +7,20 @@ Parameters:
   PortalAlias: {Type: String, Default: ''}
   CertificateUsEast1: {Type: String, Default: ''}
   CloudFrontWebAclArn: {Type: String, Default: ''}
+  NameSuffix: {Type: String, Default: bko, AllowedPattern: '[a-z0-9-]+'}
+  Environnement: {Type: String, Default: prod, AllowedValues: [dev, prod]}
+  StaticOriginMode:
+    Type: String
+    Default: alb
+    AllowedValues: [alb, prepare-s3, s3]
+  StaticContentKmsKeyArn:
+    Type: String
+    Default: alias/aws/s3
+    AllowedPattern: 'alias/aws/s3|arn:aws[a-zA-Z-]*:kms:[a-z0-9-]+:[0-9]{12}:key/[a-zA-Z0-9-]+'
+  EnableCacheMetrics:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
   OriginProtocol:
     Type: String
     Default: http-only
@@ -15,17 +29,72 @@ Parameters:
     Type: String
     Default: 'true'
     AllowedValues: ['true', 'false']
+Rules:
+  PrivateStaticNeedsKey:
+    RuleCondition: !Not [!Equals [!Ref StaticOriginMode, alb]]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref StaticContentKmsKeyArn, alias/aws/s3]]
+        AssertDescription: Une clé KMS est requise pour préparer ou utiliser le bucket privé.
 Conditions:
   CustomAlias: !And [!Not [!Equals [!Ref PortalAlias, '']], !Not [!Equals [!Ref CertificateUsEast1, '']]]
   OriginOverride: !Not [!Equals [!Ref OriginDomainOverride, '']]
   Active: !Equals [!Ref Enabled, 'true']
   HasWebAcl: !Not [!Equals [!Ref CloudFrontWebAclArn, '']]
+  PrepareStaticBucket: !Not [!Equals [!Ref StaticOriginMode, alb]]
+  ServeStaticFromBucket: !Equals [!Ref StaticOriginMode, s3]
+  PublishCacheMetrics: !Equals [!Ref EnableCacheMetrics, 'true']
 Resources:
+  StaticBucket:
+    Type: AWS::S3::Bucket
+    Condition: PrepareStaticBucket
+    Properties:
+      OwnershipControls:
+        Rules: [{ObjectOwnership: BucketOwnerEnforced}]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref StaticContentKmsKeyArn
+            BucketKeyEnabled: true
+      Tags:
+        - {Key: Projet, Value: SatomCloudNetwork}
+        - {Key: Equipe, Value: bko}
+        - {Key: Environnement, Value: !Ref Environnement}
+        - {Key: Module, Value: '11'}
+  StaticOriginAccess:
+    Type: AWS::CloudFront::OriginAccessControl
+    Condition: PrepareStaticBucket
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub oac-statique-leman-${NameSuffix}
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+  StaticBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: PrepareStaticBucket
+    Properties:
+      Bucket: !Ref StaticBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource: !Sub '${StaticBucket.Arn}/static/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
   StaticCache:
     Type: AWS::CloudFront::CachePolicy
     Properties:
       CachePolicyConfig:
-        Name: statique-portail-leman-bko
+        Name: !Sub statique-portail-leman-${NameSuffix}
         DefaultTTL: 86400
         MaxTTL: 86400
         MinTTL: 0
@@ -38,9 +107,14 @@ Resources:
   Distribution:
     Type: AWS::CloudFront::Distribution
     Properties:
-      Tags: [{Key: Name, Value: d-leman-portail-bko}, {Key: Equipe, Value: bko}, {Key: Projet, Value: SatomCloudNetwork}]
+      Tags:
+        - {Key: Name, Value: !Sub 'd-leman-portail-${NameSuffix}'}
+        - {Key: Projet, Value: SatomCloudNetwork}
+        - {Key: Equipe, Value: bko}
+        - {Key: Environnement, Value: !Ref Environnement}
+        - {Key: Module, Value: '11'}
       DistributionConfig:
-        Comment: d-leman-portail-bko
+        Comment: !Sub d-leman-portail-${NameSuffix}
         Enabled: !If [Active, true, false]
         WebACLId: !If [HasWebAcl, !Ref CloudFrontWebAclArn, !Ref 'AWS::NoValue']
         PriceClass: PriceClass_100
@@ -56,6 +130,13 @@ Resources:
             CustomOriginConfig:
               OriginProtocolPolicy: !Ref OriginProtocol
               OriginSSLProtocols: [TLSv1.2]
+          - !If
+            - PrepareStaticBucket
+            - Id: portail-statique
+              DomainName: !GetAtt StaticBucket.RegionalDomainName
+              OriginAccessControlId: !Ref StaticOriginAccess
+              S3OriginConfig: {OriginAccessIdentity: ''}
+            - !Ref 'AWS::NoValue'
         DefaultCacheBehavior:
           TargetOriginId: portail-alb
           ViewerProtocolPolicy: redirect-to-https
@@ -63,7 +144,7 @@ Resources:
           OriginRequestPolicyId: !If [OriginOverride, b689b0a8-53d0-40ab-baf2-68738e2966ac, 216adef6-5c7f-47e4-b989-5492eafa07d3]
         CacheBehaviors:
           - PathPattern: '/static/*'
-            TargetOriginId: portail-alb
+            TargetOriginId: !If [ServeStaticFromBucket, portail-statique, portail-alb]
             ViewerProtocolPolicy: redirect-to-https
             CachePolicyId: !Ref StaticCache
             Compress: true
@@ -79,6 +160,15 @@ Resources:
           - {ErrorCode: 502, ErrorCachingMinTTL: 0}
           - {ErrorCode: 503, ErrorCachingMinTTL: 0}
           - {ErrorCode: 504, ErrorCachingMinTTL: 0}
+  CacheMetrics:
+    Type: AWS::CloudFront::MonitoringSubscription
+    Condition: PublishCacheMetrics
+    Properties:
+      DistributionId: !Ref Distribution
+      MonitoringSubscription:
+        RealtimeMetricsSubscriptionConfig:
+          RealtimeMetricsSubscriptionStatus: Enabled
 Outputs:
   DistributionId: {Value: !Ref Distribution}
   DomainName: {Value: !GetAtt Distribution.DomainName}
+  StaticBucketName: {Condition: PrepareStaticBucket, Value: !Ref StaticBucket}
