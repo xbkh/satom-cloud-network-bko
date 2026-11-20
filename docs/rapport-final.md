@@ -87,7 +87,7 @@ sert uniquement des réponses générées et une image.
 | Déploiement complet | Chemin EC2 et charge k6 à exécuter dès qu’un quota suffisant est disponible. Les tests Lambda constituent une dérogation documentée. |
 | Sécurité dynamique | Sonde HTTP dans le VPC. ZAP passif local sur trois routes, 0 alerte élevée, 1 faible liée au serveur de test. Baseline ZAP dans le VPC à valider. |
 | Sécurité du compte | Security Hub, AWS Config et GuardDuty absents à Stockholm. Le budget est préparé en IaC. Le score CIS et le budget demandent l’intervention du gestionnaire. |
-| DNS et CDN | DNSSEC, WAF et OAC absents. Cache confirmé par en-tête, série mensuelle indisponible. L’accueil en texte brut ne fournit pas de score Lighthouse. |
+| DNS et CDN | DNSSEC et WAF préparés en IaC et à qualifier. OAC absent. Cache confirmé par en-tête. Série mensuelle et score Lighthouse indisponibles. |
 | Disponibilité | Le test de charge mesure une courte période. La disponibilité mensuelle et les SLO dans la durée restent à qualifier. |
 | Connectivité des bureaux | Tunnels VPN AWS DOWN avec les adresses fictives. La redondance et BGP ont été validés sur une maquette. |
 | Rendu et prod | Pull request à relire, dépôt de rendu à confirmer avec le formateur, puis promotion sous approbation humaine. |

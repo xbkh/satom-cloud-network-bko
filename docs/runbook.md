@@ -18,3 +18,11 @@ Lors du test, [la reprise](preuves/reprise-dev.json) a pris 27 min 17 s, dont en
 ## Activer le suivi des coûts par équipe
 
 Le [template du budget](../templates/budget-equipe.yaml) prévoit une alerte à 80 % et filtre les frais par projet et par équipe. Activer les tags de facturation `Projet` et `Equipe` côté compte de gestion. Déployer la stack dans `us-east-1` avec le montant USD validé pour 150 CHF et une adresse de réception autorisée, puis vérifier que la vue de coûts expose les lignes correspondantes. [Filtres Budgets AWS](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-create-filters.html)
+
+## Qualifier les protections du portail
+
+Déployer le [WAF CloudFront](../templates/waf-cloudfront.yaml) dans `us-east-1` avec le mode observation. Utiliser la sortie `WebAclArn` dans le paramètre `CloudFrontWebAclArn` d’une distribution de dev. Comparer les métriques WAF aux réponses normales avant approbation du blocage. [Ressource AWS WAF](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-wafv2-webacl.html)
+
+Pour les journaux réseau, donner au service CloudWatch Logs régional l’accès à la clé KMS pour le log group du projet, puis fournir l’ARN de cette clé dans `FlowLogsKeyArn`. Tester ensuite l’alarme avec `AlarmPeriodSeconds=60` et relever le délai entre les premières erreurs et la notification SQS. [Chiffrement des journaux CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/encrypt-log-data-kms.html)
+
+Pour DNSSEC, le [template de signature](../templates/dnssec-route53.yaml) prend l’identifiant de la zone déléguée et une clé KMS asymétrique de signature configurée à `us-east-1`. Déployer d’abord sur une zone de test. Publier le DS dans la zone parente après vérification de la signature, puis contrôler la chaîne depuis un résolveur validant. Pour retirer la signature, enlever d’abord le DS côté parent et attendre l’expiration de son cache. [Procédure AWS DNSSEC](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-configuring-dnssec.html)

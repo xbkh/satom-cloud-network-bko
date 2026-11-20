@@ -10,13 +10,16 @@ regional_templates=(
   templates/dev-sans-ec2.yaml templates/oidc-dev.yaml
   templates/sonde-iam.yaml templates/sonde.yaml
 )
-budget_template=templates/budget-equipe.yaml
+global_templates=(
+  templates/budget-equipe.yaml templates/dnssec-route53.yaml
+  templates/waf-cloudfront.yaml
+)
 python3 scripts/bundle_portal.py --check
 python3 scripts/bundle_lambda.py --check
 ruff check app scripts tests policies
 cfn-lint -r eu-north-1 --non-zero-exit-code error -t "${regional_templates[@]}"
-cfn-lint -r us-east-1 --non-zero-exit-code error -t "$budget_template"
-python3 policies/controle-iac.py "${regional_templates[@]}" "$budget_template"
+cfn-lint -r us-east-1 --non-zero-exit-code error -t "${global_templates[@]}"
+python3 policies/controle-iac.py "${regional_templates[@]}" "${global_templates[@]}"
 bash scripts/guard.sh
 coverage run --source=app -m unittest discover -s tests -p 'test_*.py'
 coverage xml -o coverage.xml

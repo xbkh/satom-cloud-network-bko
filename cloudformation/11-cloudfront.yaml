@@ -6,6 +6,7 @@ Parameters:
   OriginHeader: {Type: String, NoEcho: true}
   PortalAlias: {Type: String, Default: ''}
   CertificateUsEast1: {Type: String, Default: ''}
+  CloudFrontWebAclArn: {Type: String, Default: ''}
   OriginProtocol:
     Type: String
     Default: http-only
@@ -18,6 +19,7 @@ Conditions:
   CustomAlias: !And [!Not [!Equals [!Ref PortalAlias, '']], !Not [!Equals [!Ref CertificateUsEast1, '']]]
   OriginOverride: !Not [!Equals [!Ref OriginDomainOverride, '']]
   Active: !Equals [!Ref Enabled, 'true']
+  HasWebAcl: !Not [!Equals [!Ref CloudFrontWebAclArn, '']]
 Resources:
   StaticCache:
     Type: AWS::CloudFront::CachePolicy
@@ -40,6 +42,7 @@ Resources:
       DistributionConfig:
         Comment: d-leman-portail-bko
         Enabled: !If [Active, true, false]
+        WebACLId: !If [HasWebAcl, !Ref CloudFrontWebAclArn, !Ref 'AWS::NoValue']
         PriceClass: PriceClass_100
         Aliases: !If [CustomAlias, [!Ref PortalAlias], !Ref 'AWS::NoValue']
         ViewerCertificate: !If

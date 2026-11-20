@@ -6,9 +6,15 @@ Parameters:
   WebTargetsFullName: {Type: String}
   DistributionId: {Type: String, Default: ''}
   NotificationEmail: {Type: String, Default: '', NoEcho: true}
+  FlowLogsKeyArn: {Type: String, Default: ''}
+  AlarmPeriodSeconds:
+    Type: Number
+    Default: 300
+    AllowedValues: [60, 300]
 Conditions:
   HasDistribution: !Not [!Equals [!Ref DistributionId, '']]
   HasEmail: !Not [!Equals [!Ref NotificationEmail, '']]
+  HasFlowLogsKey: !Not [!Equals [!Ref FlowLogsKeyArn, '']]
 Resources:
   Topic:
     Type: AWS::SNS::Topic
@@ -54,7 +60,7 @@ Resources:
       MetricName: HTTPCode_Target_5XX_Count
       Dimensions: [{Name: LoadBalancer, Value: !Ref AlbFullName}]
       Statistic: Sum
-      Period: 300
+      Period: !Ref AlarmPeriodSeconds
       Threshold: 5
       EvaluationPeriods: 2
       DatapointsToAlarm: 2
@@ -71,7 +77,7 @@ Resources:
           {"widgets":[
             {"type":"metric","x":0,"y":0,"width":12,"height":6,"properties":{"title":"Cibles web","region":"${AWS::Region}","period":60,"metrics":[["AWS/ApplicationELB","HealthyHostCount","LoadBalancer","${AlbFullName}","TargetGroup","${WebTargetsFullName}"],["AWS/ApplicationELB","UnHealthyHostCount","LoadBalancer","${AlbFullName}","TargetGroup","${WebTargetsFullName}"]]}},
             {"type":"metric","x":12,"y":0,"width":12,"height":6,"properties":{"title":"Latence des cibles","region":"${AWS::Region}","period":60,"metrics":[["AWS/ApplicationELB","TargetResponseTime","LoadBalancer","${AlbFullName}"]]}},
-            {"type":"metric","x":0,"y":6,"width":12,"height":6,"properties":{"title":"Erreurs 5xx des cibles","region":"${AWS::Region}","period":300,"stat":"Sum","metrics":[["AWS/ApplicationELB","HTTPCode_Target_5XX_Count","LoadBalancer","${AlbFullName}"]]}}${CloudFrontWidget}
+            {"type":"metric","x":0,"y":6,"width":12,"height":6,"properties":{"title":"Erreurs 5xx des cibles","region":"${AWS::Region}","period":${AlarmPeriodSeconds},"stat":"Sum","metrics":[["AWS/ApplicationELB","HTTPCode_Target_5XX_Count","LoadBalancer","${AlbFullName}"]]}}${CloudFrontWidget}
           ]}
         - CloudFrontWidget: !If
             - HasDistribution
@@ -81,6 +87,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: /leman/vpc-prod-bko/flow
+      KmsKeyId: !If [HasFlowLogsKey, !Ref FlowLogsKeyArn, !Ref 'AWS::NoValue']
       RetentionInDays: 3
       Tags: [{Key: Equipe, Value: bko}]
   FlowRole:
