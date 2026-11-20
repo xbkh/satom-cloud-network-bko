@@ -1,0 +1,18 @@
+{
+  "region": "eu-north-1",
+  "variante": "ALB interne et cibles EC2 Spot",
+  "metric": "TargetResponseTime",
+  "period_seconds": 60,
+  "points": [
+    {
+      "timestamp": "2026-11-20T18:40:00+01:00",
+      "p95_ms": 1.92,
+      "p99_ms": 1.94
+    },
+    {
+      "timestamp": "2026-11-20T18:41:00+01:00",
+      "p95_ms": 2.05,
+      "p99_ms": 2.48
+    }
+  ]
+}

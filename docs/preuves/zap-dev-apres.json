@@ -1,0 +1,11 @@
+{
+  "outil": "ZAP",
+  "version": "2.17.0",
+  "environnement": "ALB dev EC2 via sonde SSM",
+  "perimetre": [
+    "/ (HTML)",
+    "/api/health",
+    "/static/logo.png"
+  ],
+  "alertes": 0
+}

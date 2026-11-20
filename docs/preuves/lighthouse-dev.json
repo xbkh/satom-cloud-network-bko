@@ -1,0 +1,6 @@
+{
+  "outil": "Lighthouse 12.8.2",
+  "cible": "ALB de dev via la sonde SSM",
+  "performance": 100,
+  "accessibilite": 100
+}

@@ -6,19 +6,31 @@ Parameters:
   WebTargetsFullName: {Type: String}
   DistributionId: {Type: String, Default: ''}
   NotificationEmail: {Type: String, Default: '', NoEcho: true}
+  FlowLogsKeyArn: {Type: String, Default: ''}
+  AlarmPeriodSeconds:
+    Type: Number
+    Default: 300
+    AllowedValues: [60, 300]
+  NameSuffix: {Type: String, Default: bko, AllowedPattern: '[a-z0-9-]+'}
+  DeployVpcObservability:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
 Conditions:
   HasDistribution: !Not [!Equals [!Ref DistributionId, '']]
   HasEmail: !Not [!Equals [!Ref NotificationEmail, '']]
+  HasFlowLogsKey: !Not [!Equals [!Ref FlowLogsKeyArn, '']]
+  WithVpcObservability: !Equals [!Ref DeployVpcObservability, 'true']
 Resources:
   Topic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: sns-exploitation-leman-bko
+      TopicName: !Sub sns-exploitation-leman-${NameSuffix}
       Tags: [{Key: Equipe, Value: bko}]
   NotificationQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: alarme-leman-bko
+      QueueName: !Sub alarme-leman-${NameSuffix}
       MessageRetentionPeriod: 3600
       SqsManagedSseEnabled: true
   QueuePolicy:
@@ -49,12 +61,12 @@ Resources:
   Alarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: alarm-5xx-portail-bko
+      AlarmName: !Sub alarm-5xx-portail-${NameSuffix}
       Namespace: AWS/ApplicationELB
       MetricName: HTTPCode_Target_5XX_Count
       Dimensions: [{Name: LoadBalancer, Value: !Ref AlbFullName}]
       Statistic: Sum
-      Period: 300
+      Period: !Ref AlarmPeriodSeconds
       Threshold: 5
       EvaluationPeriods: 2
       DatapointsToAlarm: 2
@@ -64,14 +76,15 @@ Resources:
       OKActions: [!Ref Topic]
   Dashboard:
     Type: AWS::CloudWatch::Dashboard
+    Condition: WithVpcObservability
     Properties:
-      DashboardName: db-portail-leman-bko
+      DashboardName: !Sub db-portail-leman-${NameSuffix}
       DashboardBody: !Sub
         - |
           {"widgets":[
             {"type":"metric","x":0,"y":0,"width":12,"height":6,"properties":{"title":"Cibles web","region":"${AWS::Region}","period":60,"metrics":[["AWS/ApplicationELB","HealthyHostCount","LoadBalancer","${AlbFullName}","TargetGroup","${WebTargetsFullName}"],["AWS/ApplicationELB","UnHealthyHostCount","LoadBalancer","${AlbFullName}","TargetGroup","${WebTargetsFullName}"]]}},
             {"type":"metric","x":12,"y":0,"width":12,"height":6,"properties":{"title":"Latence des cibles","region":"${AWS::Region}","period":60,"metrics":[["AWS/ApplicationELB","TargetResponseTime","LoadBalancer","${AlbFullName}"]]}},
-            {"type":"metric","x":0,"y":6,"width":12,"height":6,"properties":{"title":"Erreurs 5xx des cibles","region":"${AWS::Region}","period":300,"stat":"Sum","metrics":[["AWS/ApplicationELB","HTTPCode_Target_5XX_Count","LoadBalancer","${AlbFullName}"]]}}${CloudFrontWidget}
+            {"type":"metric","x":0,"y":6,"width":12,"height":6,"properties":{"title":"Erreurs 5xx des cibles","region":"${AWS::Region}","period":${AlarmPeriodSeconds},"stat":"Sum","metrics":[["AWS/ApplicationELB","HTTPCode_Target_5XX_Count","LoadBalancer","${AlbFullName}"]]}}${CloudFrontWidget}
           ]}
         - CloudFrontWidget: !If
             - HasDistribution
@@ -79,12 +92,15 @@ Resources:
             - ''
   FlowLogGroup:
     Type: AWS::Logs::LogGroup
+    Condition: WithVpcObservability
     Properties:
       LogGroupName: /leman/vpc-prod-bko/flow
+      KmsKeyId: !If [HasFlowLogsKey, !Ref FlowLogsKeyArn, !Ref 'AWS::NoValue']
       RetentionInDays: 3
       Tags: [{Key: Equipe, Value: bko}]
   FlowRole:
     Type: AWS::IAM::Role
+    Condition: WithVpcObservability
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -108,6 +124,7 @@ Resources:
                 Resource: '*'
   FlowLog:
     Type: AWS::EC2::FlowLog
+    Condition: WithVpcObservability
     Properties:
       DeliverLogsPermissionArn: !GetAtt FlowRole.Arn
       LogDestinationType: cloud-watch-logs

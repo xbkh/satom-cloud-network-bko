@@ -2,6 +2,10 @@
 
 [Rapport de réalisation · modules 0 à 13 et glossaire](RAPPORT.md)
 
+[TP final DevSecOps · résultats et preuves](docs/validation.md) · [Rapport de synthèse PDF](docs/rapport-final.pdf)
+
+**Validation dev.** GitHub Actions déploie le lab EC2 Spot, lance k6 via la sonde du VPC et retire les ressources de test. Le dernier essai a traité 101 requêtes sans erreur. [Exécution de référence](https://github.com/xbkh/satom-cloud-network-bko/actions/runs/44784364625)
+
 **Démonstration publique.** Le portail affiche l’identifiant du serveur web et le test de l’API affiche `app-01_bko OK`. [Ouvrir le portail](https://portail.bilelk.com/) · [Tester l’API](https://portail.bilelk.com/api/health) · [Voir les résultats](#démonstration-sur-le-domaine-public)
 
 Projet du cours AWS E3. La région du lab est Stockholm (`eu-north-1`). Les ressources sont définies dans CloudFormation et les changements sont versionnés dans Git.

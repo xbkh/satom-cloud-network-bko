@@ -1,0 +1,6 @@
+cfn-lint==1.61.0
+coverage==7.17.3
+cyclonedx-bom==9.0.0
+pip-audit==2.10.1
+PyYAML==6.0.3
+ruff==0.17.6

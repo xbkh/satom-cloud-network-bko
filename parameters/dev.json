@@ -1,0 +1,14 @@
+{
+  "Environnement": "dev",
+  "InstanceMarket": "spot",
+  "CidrVpc": "10.1.0.0/16",
+  "PublicACidr": "10.1.71.0/24",
+  "PublicBCidr": "10.1.75.0/24",
+  "PrivateACidr": "10.1.72.0/24",
+  "WebIp": "10.1.71.10",
+  "WebBackupIp": "10.1.75.10",
+  "AppIp": "10.1.72.10",
+  "DeployPortal": "true",
+  "InternalPortal": "true",
+  "LabDiagnostics": "false"
+}

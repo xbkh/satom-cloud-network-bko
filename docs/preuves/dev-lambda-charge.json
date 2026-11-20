@@ -1,0 +1,12 @@
+{
+  "n": 60,
+  "max_req_s": 5,
+  "errors": 0,
+  "dns_ms": 49.33,
+  "p95_ms": 37.16,
+  "p99_ms": 49.17,
+  "http_api": 200,
+  "diagnostic": 404,
+  "headers_passifs": "OK",
+  "thresholds": true
+}

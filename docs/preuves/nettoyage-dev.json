@@ -1,0 +1,16 @@
+{
+  "checked_at_utc": "2026-11-20T16:43:22Z",
+  "region": "eu-north-1",
+  "stacks": [
+    {
+      "name": "satom-leman-ci-dev-lambda-bko",
+      "status": "DELETE_COMPLETE"
+    },
+    {
+      "name": "satom-leman-ci-dev-bko",
+      "status": "DELETE_COMPLETE"
+    }
+  ],
+  "remaining_probe_interfaces": 0,
+  "public_api_status": 200
+}

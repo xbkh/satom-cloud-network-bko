@@ -1,0 +1,15 @@
+{
+  "workflow_run": 44784364625,
+  "environment": "dev EC2 Spot via SSM",
+  "duration_configured_s": 20,
+  "target_requests_per_s": 5,
+  "dns_internal_ms": 75.623,
+  "diagnostic_route": 404,
+  "iterations": 101,
+  "requests": 101,
+  "p95_ms": 37.673184,
+  "p99_ms": 78.975377,
+  "error_rate": 0,
+  "checks": 1,
+  "vus_max": 3
+}

@@ -1,0 +1,8 @@
+{
+  "variante": "ALB interne et EC2 Spot dans le VPC dev existant",
+  "depart": "2026-11-20T17:28:52.910000+00:00",
+  "premiere_reponse_api_saine": "2026-11-20T17:40:41+00:00",
+  "duree_s": 708,
+  "limite": "De la suppression du portail d’alarme au premier HTTP 200 du portail recréé. Relance CI incluse.",
+  "rpo": "Aucune donnée métier persistante dans le portail de test."
+}

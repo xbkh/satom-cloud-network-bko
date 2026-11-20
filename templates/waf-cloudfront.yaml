@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ACL AWS WAF pour CloudFront, observation avant application.
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  Enforce:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Appliquer les actions de blocage après revue des métriques.
+  RequestsPerFiveMinutes:
+    Type: Number
+    Default: 2000
+    MinValue: 10
+    MaxValue: 2000000000
+    Description: Limite par IP sur la fenêtre de 300 secondes.
+Conditions:
+  BlockTraffic: !Equals [!Ref Enforce, 'true']
+Resources:
+  PortalAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub waf-${Environment}-portail-leman-bko
+      Scope: CLOUDFRONT
+      DefaultAction: {Allow: {}}
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub waf-${Environment}-portail-leman-bko
+        SampledRequestsEnabled: false
+      Rules:
+        - Name: limite-ip-bko
+          Priority: 0
+          Action: !If [BlockTraffic, {Block: {}}, {Count: {}}]
+          Statement:
+            RateBasedStatement:
+              AggregateKeyType: IP
+              EvaluationWindowSec: 300
+              Limit: !Ref RequestsPerFiveMinutes
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: waf-limite-ip-bko
+            SampledRequestsEnabled: false
+        - Name: regles-communes-bko
+          Priority: 1
+          OverrideAction: !If [BlockTraffic, {None: {}}, {Count: {}}]
+          Statement:
+            ManagedRuleGroupStatement:
+              Name: AWSManagedRulesCommonRuleSet
+              VendorName: AWS
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: waf-regles-communes-bko
+            SampledRequestsEnabled: false
+      Tags:
+        - {Key: Projet, Value: SatomCloudNetwork}
+        - {Key: Equipe, Value: bko}
+        - {Key: Environnement, Value: !Ref Environment}
+        - {Key: Module, Value: '11'}
+Outputs:
+  WebAclArn: {Value: !GetAtt PortalAcl.Arn}

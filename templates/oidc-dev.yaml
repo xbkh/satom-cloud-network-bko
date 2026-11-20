@@ -1,0 +1,173 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Identités de déploiement GitHub Actions pour les stacks de validation dev.
+Parameters:
+  GitHubSubject:
+    Type: String
+    AllowedPattern: 'repo:[A-Za-z0-9_.-]+@[0-9]+/[A-Za-z0-9_.-]+@[0-9]+:environment:dev'
+  ProbeRoleArn:
+    Type: String
+Resources:
+  CloudFormationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: cloudformation.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: PortailDev
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ProtectOtherEnvironments
+                Effect: Deny
+                Action: ['ec2:*', 'elasticloadbalancing:*']
+                Resource: '*'
+                Condition:
+                  StringNotEquals: {'aws:ResourceTag/Environnement': dev}
+                  'Null': {'aws:ResourceTag/Environnement': 'false'}
+              - Sid: ProtectOtherTeams
+                Effect: Deny
+                Action: ['ec2:*', 'elasticloadbalancing:*']
+                Resource: '*'
+                Condition:
+                  StringNotEquals: {'aws:ResourceTag/Equipe': bko}
+                  'Null': {'aws:ResourceTag/Equipe': 'false'}
+              - Sid: ManagePortalNetworkAndCompute
+                Effect: Allow
+                Action:
+                  - ec2:Describe*
+                  - ec2:CreateVpc
+                  - ec2:ModifyVpcAttribute
+                  - ec2:DeleteVpc
+                  - ec2:CreateSubnet
+                  - ec2:ModifySubnetAttribute
+                  - ec2:DeleteSubnet
+                  - ec2:CreateRouteTable
+                  - ec2:DeleteRouteTable
+                  - ec2:AssociateRouteTable
+                  - ec2:DisassociateRouteTable
+                  - ec2:CreateRoute
+                  - ec2:DeleteRoute
+                  - ec2:CreateInternetGateway
+                  - ec2:AttachInternetGateway
+                  - ec2:DetachInternetGateway
+                  - ec2:DeleteInternetGateway
+                  - ec2:CreateSecurityGroup
+                  - ec2:DeleteSecurityGroup
+                  - ec2:AuthorizeSecurityGroupIngress
+                  - ec2:AuthorizeSecurityGroupEgress
+                  - ec2:RevokeSecurityGroupIngress
+                  - ec2:RevokeSecurityGroupEgress
+                  - ec2:CreateLaunchTemplate
+                  - ec2:CreateLaunchTemplateVersion
+                  - ec2:DeleteLaunchTemplate
+                  - ec2:DeleteLaunchTemplateVersions
+                  - ec2:RunInstances
+                  - ec2:TerminateInstances
+                  - ec2:CreateTags
+                  - ec2:DeleteTags
+                Resource: '*'
+                Condition:
+                  StringEquals: {'aws:RequestedRegion': !Ref 'AWS::Region'}
+              - Sid: ManageLoadBalancer
+                Effect: Allow
+                Action:
+                  - elasticloadbalancing:Describe*
+                  - elasticloadbalancing:CreateLoadBalancer
+                  - elasticloadbalancing:DeleteLoadBalancer
+                  - elasticloadbalancing:ModifyLoadBalancerAttributes
+                  - elasticloadbalancing:SetSecurityGroups
+                  - elasticloadbalancing:SetSubnets
+                  - elasticloadbalancing:CreateTargetGroup
+                  - elasticloadbalancing:DeleteTargetGroup
+                  - elasticloadbalancing:ModifyTargetGroup
+                  - elasticloadbalancing:ModifyTargetGroupAttributes
+                  - elasticloadbalancing:RegisterTargets
+                  - elasticloadbalancing:DeregisterTargets
+                  - elasticloadbalancing:CreateListener
+                  - elasticloadbalancing:ModifyListener
+                  - elasticloadbalancing:DeleteListener
+                  - elasticloadbalancing:CreateRule
+                  - elasticloadbalancing:ModifyRule
+                  - elasticloadbalancing:DeleteRule
+                  - elasticloadbalancing:AddTags
+                  - elasticloadbalancing:RemoveTags
+                Resource: '*'
+                Condition:
+                  StringEquals: {'aws:RequestedRegion': !Ref 'AWS::Region'}
+              - Sid: ReadAmiParameter
+                Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters]
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}::parameter/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64'
+              - Sid: PassProbeIdentity
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !Ref ProbeRoleArn
+                Condition:
+                  StringEquals: {'iam:PassedToService': ec2.amazonaws.com}
+  GitHubRole:
+    Type: AWS::IAM::Role
+    Properties:
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com'
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': sts.amazonaws.com
+                'token.actions.githubusercontent.com:sub': !Ref GitHubSubject
+      Policies:
+        - PolicyName: GitHubDev
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: cloudformation:CreateChangeSet
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/satom-leman-ci-dev-bko/*'
+                  - !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/satom-leman-ci-sonde-bko/*'
+                Condition:
+                  StringEquals:
+                    cloudformation:RoleArn: !GetAtt CloudFormationRole.Arn
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteStack
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/satom-leman-ci-dev-bko/*'
+                  - !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/satom-leman-ci-sonde-bko/*'
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt CloudFormationRole.Arn
+                Condition:
+                  StringEquals: {'iam:PassedToService': cloudformation.amazonaws.com}
+              - Effect: Allow
+                Action: [ssm:GetCommandInvocation, ssm:DescribeInstanceInformation]
+                Resource: '*'
+                Condition:
+                  StringEquals: {'aws:RequestedRegion': !Ref 'AWS::Region'}
+              - Effect: Allow
+                Action: ssm:SendCommand
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}::document/AWS-RunShellScript'
+              - Effect: Allow
+                Action: ssm:SendCommand
+                Resource: !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+                Condition:
+                  StringEquals:
+                    'ssm:resourceTag/Equipe': bko
+                    'ssm:resourceTag/Environnement': dev
+                    'ssm:resourceTag/Name': sonde-devsecops-bko
+Outputs:
+  DevRoleArn: {Value: !GetAtt GitHubRole.Arn}
+  CloudFormationRoleArn: {Value: !GetAtt CloudFormationRole.Arn}

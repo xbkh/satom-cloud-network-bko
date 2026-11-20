@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-20",
+  "outil": "ZAP",
+  "version": "2.17.0",
+  "perimetre": "Adaptateur ALB/Lambda du dépôt servi en HTTP sur 127.0.0.1",
+  "mode": "analyse passive, trois GET connus",
+  "http": {
+    "/": 200,
+    "/api/health": 200,
+    "/static/logo.png": 200
+  },
+  "alertes_par_niveau": {
+    "high": 0,
+    "medium": 0,
+    "low": 1,
+    "info": 0
+  },
+  "alerte": {
+    "titre": "Server Leaks Version Information via Server HTTP Response Header Field",
+    "chemin": "/static/logo.png",
+    "origine": "En-tête Server injecté par le serveur Python de test local."
+  }
+}

@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Signature DNSSEC de la zone publique déléguée du portail.
+Parameters:
+  HostedZoneId:
+    Type: String
+    AllowedPattern: '[A-Z0-9]{1,32}'
+    Description: Identifiant de la seule zone publique déléguée au portail.
+  SignerKeyArn:
+    Type: String
+    AllowedPattern: 'arn:aws:kms:us-east-1:[0-9]{12}:key/[a-f0-9-]+'
+    Description: Clé KMS asymétrique de signature autorisant le service DNSSEC Route 53.
+Resources:
+  KeySigningKey:
+    Type: AWS::Route53::KeySigningKey
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      KeyManagementServiceArn: !Ref SignerKeyArn
+      Name: portail_leman_bko
+      Status: ACTIVE
+  ZoneSigning:
+    Type: AWS::Route53::DNSSEC
+    DependsOn: KeySigningKey
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+Outputs:
+  SignedZoneId: {Value: !Ref HostedZoneId}

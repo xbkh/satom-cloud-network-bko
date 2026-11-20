@@ -1,0 +1,17 @@
+rules:
+  - id: portail-python-no-exec
+    languages: [python]
+    severity: ERROR
+    message: Le portail traite seulement des routes statiques et ne doit pas exécuter de code dynamique.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+      - pattern: subprocess.$METHOD(..., shell=True, ...)
+  - id: portail-python-no-unsafe-deserialization
+    languages: [python]
+    severity: ERROR
+    message: Les entrées du portail doivent utiliser un format sans exécution de code.
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+      - pattern: yaml.unsafe_load(...)

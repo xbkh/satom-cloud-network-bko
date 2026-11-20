@@ -1,0 +1,170 @@
+name: Chaîne DevSecOps
+on:
+  pull_request:
+  push:
+    branches: [devsecops/final-bko]
+  workflow_dispatch:
+    inputs:
+      cible:
+        description: Environnement de déploiement
+        type: choice
+        options: [validation, dev, prod]
+        default: validation
+
+permissions:
+  contents: read
+
+jobs:
+  oidc-dev:
+    name: Vérifier l’identité AWS de dev
+    if: github.event_name == 'push' && github.ref == 'refs/heads/devsecops/final-bko'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-north-1
+          mask-aws-account-id: true
+      - name: Confirmer la session OIDC
+        run: |
+          ARN=$(aws sts get-caller-identity --query Arn --output text)
+          [[ "$ARN" == arn:aws:sts::*:assumed-role/* ]]
+          echo 'Session AWS temporaire confirmée.'
+
+  validation:
+    name: Qualité, sécurité et SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+      - name: Installer les outils de validation
+        run: python -m pip install -r requirements-ci.txt semgrep==1.186.0
+      - name: Qualité et construction du SBOM
+        run: bash scripts/validation.sh
+      - name: Performance et accessibilité de l’accueil
+        run: bash scripts/lighthouse.sh
+      - name: Sécurité statique
+        run: bash scripts/scans.sh
+      - name: Analyse SonarQube et contrôle des seuils
+        run: |
+          if [[ "$(sysctl -n vm.max_map_count)" -lt 524288 ]]; then
+            sudo sysctl -w vm.max_map_count=524288
+          fi
+          export JAVA_HOME="${JAVA_HOME_21_X64:?JDK 21 requis}"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          bash scripts/sonar.sh
+      - name: Archiver les rapports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: qualite-securite-sbom
+          path: rapports-ci/
+          if-no-files-found: warn
+
+  dev:
+    name: Déploiement et validation dev
+    if: github.event_name == 'workflow_dispatch' && inputs.cible != 'validation'
+    needs: validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 26
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: leman-ci-dev
+      cancel-in-progress: false
+    env:
+      AWS_REGION: eu-north-1
+      CFN_ROLE_ARN: ${{ vars.CFN_ROLE_ARN }}
+      PROBE_PROFILE_NAME: ${{ vars.PROBE_PROFILE_NAME }}
+      DEV_VPC_ID: ${{ vars.DEV_VPC_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Session AWS par OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-north-1
+          mask-aws-account-id: true
+          role-session-name: github-dev-${{ github.run_id }}
+      - name: Créer et appliquer les change sets
+        run: timeout 11m bash scripts/stack.sh dev
+      - name: Porter la preuve réseau et charge depuis le VPC
+        run: |
+          set -o pipefail
+          mkdir -p rapports-ci
+          bash scripts/verifier-dev.sh | tee rapports-ci/sonde-vpc.json
+      - name: Archiver la preuve
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: validation-dev
+          path: rapports-ci/
+          if-no-files-found: warn
+      - name: Retirer les stacks facturables de la session
+        if: always()
+        run: bash scripts/nettoyer-dev.sh
+
+  prod:
+    name: Promotion prod après approbation
+    if: github.event_name == 'workflow_dispatch' && inputs.cible == 'prod' && github.ref == 'refs/heads/main'
+    needs: dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: leman-ci-prod
+      cancel-in-progress: false
+    env:
+      CFN_ROLE_ARN: ${{ vars.CFN_ROLE_ARN }}
+    steps:
+      - name: Vérifier les prérequis de prod
+        env:
+          AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+          PORTAL_ALARM: ${{ vars.PORTAL_ALARM }}
+        run: |
+          test -n "$AWS_ROLE_ARN"
+          test -n "$CFN_ROLE_ARN"
+          test -n "$PORTAL_ALARM"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Session AWS prod par OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-north-1
+          mask-aws-account-id: true
+          role-session-name: github-prod-${{ github.run_id }}
+      - name: Déployer le portail de validation prod
+        run: bash scripts/stack.sh prod
+      - name: Vérifier la configuration des cibles et alarmes
+        env:
+          PORTAL_ALARM: ${{ vars.PORTAL_ALARM }}
+        run: |
+          set -euo pipefail
+          test -n "$PORTAL_ALARM"
+          out=$(aws cloudformation describe-stacks --stack-name satom-leman-ci-prod-bko \
+            --query "Stacks[0].Outputs[?OutputKey=='AppTargetsArn'].OutputValue | [0]" --output text)
+          aws elbv2 wait target-in-service --target-group-arn "$out"
+          state=$(aws cloudwatch describe-alarms --alarm-names "$PORTAL_ALARM" --query 'MetricAlarms[0].StateValue' --output text)
+          test "$state" = OK

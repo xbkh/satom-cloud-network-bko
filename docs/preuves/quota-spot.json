@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-20",
+  "region": "eu-north-1",
+  "on-demand": {"available_quota_vcpu": 48, "in_use_vcpu": 48},
+  "spot": {"available_quota_vcpu": 32, "in_use_vcpu": 4},
+  "pending_on_demand_request_vcpu": 64
+}
