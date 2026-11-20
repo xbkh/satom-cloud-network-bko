@@ -43,7 +43,8 @@ diagnostic dans le déploiement public.
 
 Le compte partagé a refusé un nouveau VPC et de nouvelles instances EC2.
 Trois sous-réseaux dédiés dans le VPC dev ont accueilli la variante
-temporaire ALB interne et Lambda. La sonde dans le VPC a mesuré :
+temporaire ALB interne et Lambda. Le tableau présente les mesures de
+la sonde dans le VPC.
 
 | Test | Résultat |
 |:---|---:|
@@ -57,6 +58,8 @@ temporaire ALB interne et Lambda. La sonde dans le VPC a mesuré :
 Les latences mesurent le trajet de la sonde vers l’ALB interne avec sa cible
 Lambda, y compris la récupération de la réponse. Les chiffres sont propres
 au débit de 5 requêtes/s, à Stockholm, pendant cet essai.
+CloudWatch mesure aussi le délai de réponse de la cible sur une minute,
+avec un p95 de 31,74 ms et un p99 de 265,28 ms.
 
 \newpage
 
@@ -67,12 +70,15 @@ l’alarme à OK et la présence de flux refusés dans les journaux réseau.
 La validation Lambda a consigné 64 événements JSON dans CloudWatch et
 la fonction était configurée avec les traces actives.
 Le runbook décrit la recherche des erreurs 5xx et les vérifications après
-reconstruction. La session finale vérifie la reprise de la variante dev
-en retirant puis recréant l’application et l’ALB à partir des templates.
+reconstruction. La session finale a retiré et recréé les sous-réseaux
+temporaires, l’ALB et les fonctions dans le VPC dev existant.
 
-**RTO de la variante dev.** Mesure en cours. L’application de démonstration
-ne porte aucune donnée métier persistante. Un RPO métier demande un scénario
-avec état et restauration.
+**RTO de la variante dev de 27 min 17 s.** La mesure démarre juste avant
+la suppression et s’arrête après vérification des réponses de l’accueil,
+de l’API et de la route de diagnostic. AWS a passé environ vingt minutes
+à libérer les interfaces réseau de la sonde. Un RPO métier demande un
+scénario avec des données persistantes à restaurer. Ce portail de test
+sert uniquement des réponses générées et une image.
 
 ## Écarts à la validation finale
 

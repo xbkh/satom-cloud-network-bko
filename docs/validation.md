@@ -10,8 +10,9 @@
 | SBOM | [Inventaire CycloneDX](../sbom/portail.cdx.json). Les fonctions du portail utilisent la bibliothèque standard de Python. |
 | GitHub Actions et OIDC | [Exécution GitHub](https://github.com/xbkh/satom-cloud-network-bko/actions/runs/44767869440). Contrôles de qualité et de sécurité réussis, avec une session temporaire AWS obtenue pour dev. IAM Access Analyzer a retourné zéro remarque pour la politique d’identité du rôle GitHub dev. |
 | Gouvernance | `main` impose une pull request, une vérification et une revue. L’environnement GitHub `prod` interdit l’auto-approbation. Le compte actuel est le seul collaborateur visible du dépôt. |
-| Déploiement EC2 | La création d’un VPC neuf puis la création d’instances dans le VPC dev ont été refusées par les quotas du compte. Les scripts EC2 et k6 sont préparés. |
-| Charge dev | 60 requêtes au maximum de 5/s, 0 erreur, p95 de 37,16 ms, p99 de 49,17 ms et résolution DNS interne de 49,33 ms. Les mesures concernent la [variante Lambda et ALB interne](preuves/dev-lambda-charge.json). |
+| Déploiement EC2 | La création d’un VPC neuf puis celle d’instances dans le VPC dev ont été refusées par les quotas. Le dernier relevé donne 48 vCPU utilisés sur 48. Les scripts EC2 et k6 sont préparés. [Relevé EC2](preuves/quota-ec2.json) |
+| Charge dev | 60 requêtes au maximum de 5/s, 0 erreur, p95 de 37,16 ms, p99 de 49,17 ms et résolution DNS interne de 49,33 ms depuis la [sonde du VPC](preuves/dev-lambda-charge.json). Sur sa minute de mesure, [CloudWatch](preuves/alb-cloudwatch.json) donne un p95 de 31,74 ms et un p99 de 265,28 ms pour la cible Lambda. |
+| Reprise dev | Suppression et recréation des deux stacks temporaires dans le VPC dev existant. La sonde a confirmé le retour des réponses attendues en **27 min 17 s**. Le portail de test ne stocke aucune donnée métier. [Mesure de reprise](preuves/reprise-dev.json) |
 | Contrôle HTTP | Sonde dans le VPC, en-têtes contrôlés et route de diagnostic à 404. ZAP passif sur trois routes de la copie locale, zéro alerte élevée et un signal faible émis par le serveur de test. Le baseline ZAP depuis le VPC et la disponibilité mensuelle restent à valider. [Rapport ZAP local](preuves/zap-passif-local.json) |
 | Monitoring | 64 événements JSON relevés dans CloudWatch Logs pendant la validation Lambda. Traces actives sur la fonction, trajet complet à valider. Le module 12 montre une notification SNS vers SQS et les refus des Flow Logs. Son alarme examine deux périodes de cinq minutes. Le seuil de notification sous cinq minutes reste à valider. |
 | Conformité et coûts | Aucun abonnement Security Hub, enregistreur AWS Config ou détecteur GuardDuty dans Stockholm. Aucun budget du projet détecté. Le modèle d’alerte à 80 % passe le contrôle local. L’accès CloudFormation à `us-east-1` est refusé par une politique AWS Organizations. Les tags de facturation, le score CIS, les règles Config et le chiffrement KMS restent à qualifier. |
@@ -29,7 +30,7 @@
 | G2 · Routage et interconnexion | Preuves des modules 4 à 8 et décisions versionnées. Tunnels physiques à qualifier. |
 | G3 · Portail et performance | Portail public vérifié. Mesures disponibles sur la variante dev et sur le DNS. Charge EC2, baseline depuis le VPC et taux de cache attendu à qualifier. |
 | G4 · Exploitation | Notification SNS démontrée. Score CIS et délai d’alerte à valider. |
-| G5 · Livraison | Pull request publiée. Revue par un autre membre et promotion prod attendues. |
+| G5 · Livraison | Reprise de la variante dev chronométrée et pull request publiée. Revue indépendante, voie EC2 et promotion prod attendues. |
 
 ## Captures de vérification
 
@@ -42,6 +43,10 @@ L’exécution GitHub confirme les contrôles de qualité et l’obtention de la
 Le rapport de la sonde interne contient le débit réel, les percentiles de latence, le résultat du contrôle des en-têtes et le code de retour de la route de diagnostic.
 
 ![Le terminal lit le rapport JSON de charge généré par la sonde](preuves/dev-charge.png)
+
+La preuve de reprise donne les heures de départ et de retour du service, ainsi que les réponses vues par la sonde interne.
+
+![Le terminal montre le résultat du chronométrage de reprise](preuves/reprise-dev.png)
 
 ## Séquence de démonstration
 

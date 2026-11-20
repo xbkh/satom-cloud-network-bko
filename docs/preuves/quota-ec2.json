@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-20",
+  "region": "eu-north-1",
+  "classe": "Standard/OnDemand",
+  "plafond_vcpu": 48,
+  "instances_t3_micro_en_execution_ou_demarrage": 24,
+  "vcpu_par_instance": 2,
+  "vcpu_comptabilises": 48
+}

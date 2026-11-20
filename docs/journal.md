@@ -24,9 +24,9 @@ La chaîne vérifie la cohérence des templates, le code, les règles IaC, l’a
 
 | Indicateur | Mesure pendant la session |
 | --- | --- |
-| Fréquence de déploiement | Un premier déploiement de la variante Lambda en dev. Zéro promotion en prod. |
+| Fréquence de déploiement | Deux déploiements réussis de la variante Lambda en dev, dont la reconstruction. Zéro promotion en prod. |
 | Délai commit → prod | Indisponible en l’absence de promotion. |
-| Échecs de changement | Deux opérations EC2 ont déclenché un rollback, sur quota VPC puis vCPU. Le chemin Lambda suit une mesure séparée. |
+| Échecs de changement | Deux tentatives avec portail EC2 ont déclenché un rollback, sur quota VPC puis vCPU. Les deux opérations Lambda ont été vérifiées. |
 | MTTR | Indisponible en l’absence d’incident prod chronométré. |
 
 Pour ajouter les prochaines mesures DORA, utiliser les heures effectives des déploiements GitHub pour la fréquence et le délai, les déploiements ayant nécessité un correctif pour le taux d’échec, et les horodatages de l’alarme et du retour à la normale pour le MTTR. L’exercice de reconstruction mesure un RTO de lab distinct.

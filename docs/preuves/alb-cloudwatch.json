@@ -1,0 +1,14 @@
+{
+  "region": "eu-north-1",
+  "variante": "ALB interne et cible Lambda",
+  "namespace": "AWS/ApplicationELB",
+  "metric": "TargetResponseTime",
+  "period_seconds": 60,
+  "points": [
+    {
+      "timestamp": "2026-11-20T15:52:00Z",
+      "p95_ms": 31.74,
+      "p99_ms": 265.28
+    }
+  ]
+}

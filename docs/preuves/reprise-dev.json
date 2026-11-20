@@ -1,0 +1,13 @@
+{
+  "variante": "ALB interne + Lambda; réseau de référence conservé",
+  "started": "2026-11-20T15:53:55Z",
+  "finished": "2026-11-20T16:21:12Z",
+  "rto_s": 1637,
+  "verification": {
+    "dns_ms": 32.54,
+    "http_home": 200,
+    "http_api": 200,
+    "diagnostic": 404
+  },
+  "rpo": "sans donnée métier persistante"
+}
