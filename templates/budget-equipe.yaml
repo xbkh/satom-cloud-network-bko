@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Budget mensuel Léman Finance par équipe, alerte à 80 pour cent.
+Parameters:
+  MonthlyBudgetUsd:
+    Type: Number
+    MinValue: 1
+    Description: Équivalent en USD de 150 CHF validé par le gestionnaire du compte.
+  BudgetEmail:
+    Type: String
+    NoEcho: true
+    Description: Adresse autorisée pour recevoir l'alerte de dépenses.
+  Team:
+    Type: String
+    Default: bko
+    AllowedPattern: '[a-z0-9-]+'
+    Description: Valeur du tag de facturation Equipe.
+Resources:
+  TeamBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub satom-leman-budget-${Team}
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref MonthlyBudgetUsd
+          Unit: USD
+        FilterExpression:
+          And:
+            - Tags:
+                Key: Projet
+                Values: [SatomCloudNetwork]
+            - Tags:
+                Key: Equipe
+                Values: [!Ref Team]
+      NotificationsWithSubscribers:
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: ACTUAL
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref BudgetEmail

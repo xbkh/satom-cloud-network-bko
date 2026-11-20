@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-20",
+  "url": "https://portail.bilelk.com/",
+  "http": {
+    "/": 200,
+    "/api/health": 200,
+    "/static/logo.png": 200
+  },
+  "cache": {
+    "path": "/static/logo.png",
+    "x_cache": ["Hit from cloudfront", "Hit from cloudfront", "Hit from cloudfront"],
+    "age_seconds": [48, 49, 49],
+    "cloudwatch_cache_hit_rate_points_last_30_days": 0
+  },
+  "dnssec": {
+    "status": "NOT_SIGNING",
+    "key_count": 0
+  },
+  "dns_externe": {
+    "type": "A",
+    "resolveur": "Résolveur du poste externe",
+    "latences_ms": [54.45, 0.72, 0.81],
+    "adresses_par_reponse": 4
+  },
+  "waf_associated": false,
+  "cloudfront_oac_attached": false,
+  "lighthouse": {
+    "version": "12.8.2",
+    "content_type": "text/plain; charset=utf-8",
+    "result": "The page provided is not HTML (served as MIME type text/plain)."
+  }
+}
