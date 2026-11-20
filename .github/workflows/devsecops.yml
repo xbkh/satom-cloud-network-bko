@@ -102,7 +102,7 @@ jobs:
           mask-aws-account-id: true
           role-session-name: github-dev-${{ github.run_id }}
       - name: Créer et appliquer les change sets
-        run: bash scripts/stack.sh dev
+        run: timeout 11m bash scripts/stack.sh dev
       - name: Porter la preuve réseau et charge depuis le VPC
         run: |
           set -o pipefail

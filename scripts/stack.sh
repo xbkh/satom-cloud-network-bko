@@ -29,5 +29,5 @@ if [[ "$environment" == dev && -n "${PROBE_PROFILE_NAME:-}" ]]; then
   }
   deploy satom-leman-ci-sonde-bko templates/sonde.yaml \
     "VpcId=$(output VpcId)" "SubnetId=$(output PublicSubnetId)" "TestAlbGroup=$(output AlbSg)" \
-    "ProfileName=$PROBE_PROFILE_NAME"
+    "ProfileName=$PROBE_PROFILE_NAME" "InstanceMarket=$(jq -r '.InstanceMarket // "on-demand"' parameters/dev.json)"
 fi

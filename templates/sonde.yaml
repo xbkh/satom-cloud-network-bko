@@ -5,9 +5,15 @@ Parameters:
   SubnetId: {Type: 'AWS::EC2::Subnet::Id'}
   ProfileName: {Type: String}
   TestAlbGroup: {Type: 'AWS::EC2::SecurityGroup::Id'}
+  InstanceMarket:
+    Type: String
+    Default: on-demand
+    AllowedValues: [on-demand, spot]
   Ami:
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+Conditions:
+  UseSpot: !Equals [!Ref InstanceMarket, spot]
 Resources:
   ProbeGroup:
     Type: AWS::EC2::SecurityGroup
@@ -17,9 +23,25 @@ Resources:
       SecurityGroupEgress:
         - {IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: '0.0.0.0/0'}
         - {IpProtocol: tcp, FromPort: 80, ToPort: 80, DestinationSecurityGroupId: !Ref TestAlbGroup}
+  SpotProbeLaunch:
+    Type: AWS::EC2::LaunchTemplate
+    Condition: UseSpot
+    Properties:
+      LaunchTemplateData:
+        InstanceMarketOptions:
+          MarketType: spot
+          SpotOptions: {SpotInstanceType: one-time, InstanceInterruptionBehavior: terminate}
+        MetadataOptions: {HttpTokens: required}
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs: {Encrypted: true, DeleteOnTermination: true, VolumeType: gp3}
   Probe:
     Type: AWS::EC2::Instance
     Properties:
+      LaunchTemplate: !If
+        - UseSpot
+        - {LaunchTemplateId: !Ref SpotProbeLaunch, Version: !GetAtt SpotProbeLaunch.LatestVersionNumber}
+        - !Ref AWS::NoValue
       IamInstanceProfile: !Ref ProfileName
       ImageId: !Ref Ami
       InstanceType: t3.micro

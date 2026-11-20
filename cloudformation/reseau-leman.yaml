@@ -48,6 +48,10 @@ Parameters:
   InstanceType:
     Type: String
     Default: t3.micro
+  InstanceMarket:
+    Type: String
+    Default: on-demand
+    AllowedValues: [on-demand, spot]
   CertificateArn:
     Type: String
     Default: ''
@@ -70,7 +74,14 @@ Parameters:
     Type: String
     Default: 'false'
     AllowedValues: ['true', 'false']
+Rules:
+  SpotOnlyInDev:
+    RuleCondition: !Equals [!Ref InstanceMarket, spot]
+    Assertions:
+      - Assert: !Equals [!Ref Environnement, dev]
+        AssertDescription: Le mode Spot est réservé au laboratoire dev.
 Conditions:
+  UseSpot: !Equals [!Ref InstanceMarket, spot]
   ReuseVpc: !Not [!Equals [!Ref ExistingVpcId, '']]
   OwnVpc: !Not [!Condition ReuseVpc]
   Portal: !Equals [!Ref DeployPortal, 'true']
@@ -187,6 +198,10 @@ Resources:
       LaunchTemplateData:
         ImageId: !Ref Ami
         InstanceType: !Ref InstanceType
+        InstanceMarketOptions: !If
+          - UseSpot
+          - {MarketType: spot, SpotOptions: {SpotInstanceType: one-time, InstanceInterruptionBehavior: terminate}}
+          - !Ref AWS::NoValue
         CreditSpecification: {CpuCredits: standard}
         MetadataOptions: {HttpTokens: required}
         BlockDeviceMappings:
