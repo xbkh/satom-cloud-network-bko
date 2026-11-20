@@ -40,15 +40,19 @@ if [[ -z "${SONAR_TOKEN:-}" ]]; then
     tail -15 "$server/logs/sonar.log" "$server/logs/web.log" >&2
     exit 1
   fi
-  SONAR_TOKEN=$(curl -fsS --user admin:admin --data-urlencode "name=satom-analysis-$(date +%s)" \
+  bootstrap_config=$(mktemp)
+  chmod 600 "$bootstrap_config"
+  printf '%s\n' 'user = "admin:admin"' >"$bootstrap_config"
+  SONAR_TOKEN=$(curl -fsS --config "$bootstrap_config" --data-urlencode "name=satom-analysis-$(date +%s)" \
     "$sonar_url/api/user_tokens/generate" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+  rm -f -- "$bootstrap_config"
   if [[ "${GITHUB_ACTIONS:-}" == true ]]; then printf '::add-mask::%s\n' "$SONAR_TOKEN"; fi
   export SONAR_TOKEN
 fi
 export SONAR_HOST_URL="$sonar_url"
 "$scanner" -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=150
 metrics=alert_status,coverage,duplicated_lines_density,security_rating,reliability_rating,sqale_rating,sqale_debt_ratio,security_hotspots,security_hotspots_reviewed,blocker_violations,critical_violations
-curl -fsS --user "$SONAR_TOKEN:" --get --data-urlencode component=satom-leman-portail-bko \
+curl -fsS --header "Authorization: Bearer $SONAR_TOKEN" --get --data-urlencode component=satom-leman-portail-bko \
   --data-urlencode "metricKeys=$metrics" "$sonar_url/api/measures/component" -o "$report_dir/sonar.json"
 python3 - "$report_dir/sonar.json" <<'PY'
 import json,sys

@@ -1,0 +1,4 @@
+# Faux positifs du premier commit DevSecOps. Le premier est le compte usine du
+# SonarQube local jetable, le second est une référence de variable sans valeur.
+05c62c603f3186b3be8cfe5a93c637af71013a05:scripts/sonar.sh:curl-auth-user:43
+05c62c603f3186b3be8cfe5a93c637af71013a05:scripts/sonar.sh:curl-auth-user:51

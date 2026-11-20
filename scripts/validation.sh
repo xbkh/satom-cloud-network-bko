@@ -14,6 +14,7 @@ python3 scripts/bundle_lambda.py --check
 ruff check app scripts tests policies
 cfn-lint -r eu-north-1 --non-zero-exit-code error -t "${templates[@]}"
 python3 policies/controle-iac.py "${templates[@]}"
+bash scripts/guard.sh
 coverage run --source=app -m unittest discover -s tests -p 'test_*.py'
 coverage xml -o coverage.xml
 coverage report --fail-under=80

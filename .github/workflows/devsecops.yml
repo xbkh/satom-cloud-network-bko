@@ -57,7 +57,13 @@ jobs:
       - name: Sécurité statique
         run: bash scripts/scans.sh
       - name: Analyse SonarQube et contrôle des seuils
-        run: bash scripts/sonar.sh
+        run: |
+          if [[ "$(sysctl -n vm.max_map_count)" -lt 524288 ]]; then
+            sudo sysctl -w vm.max_map_count=524288
+          fi
+          export JAVA_HOME="${JAVA_HOME_21_X64:?JDK 21 requis}"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          bash scripts/sonar.sh
       - name: Archiver les rapports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

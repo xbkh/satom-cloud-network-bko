@@ -1,0 +1,23 @@
+let launches = Resources.*[ Type == "AWS::EC2::LaunchTemplate" ]
+let probes = Resources.*[ Type == "AWS::EC2::Instance" Properties.MetadataOptions exists ]
+let logs = Resources.*[ Type == "AWS::Logs::LogGroup" ]
+
+rule launch_template_protections when %launches !empty {
+  %launches {
+    Properties.LaunchTemplateData.MetadataOptions.HttpTokens == "required"
+    Properties.LaunchTemplateData.BlockDeviceMappings[*].Ebs.Encrypted == true
+  }
+}
+
+rule probe_protections when %probes !empty {
+  %probes {
+    Properties.MetadataOptions.HttpTokens == "required"
+    Properties.BlockDeviceMappings[*].Ebs.Encrypted == true
+  }
+}
+
+rule log_retention when %logs !empty {
+  %logs {
+    Properties.RetentionInDays exists
+  }
+}
