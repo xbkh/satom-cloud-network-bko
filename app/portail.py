@@ -16,6 +16,12 @@ LOGO = base64.b64decode(
 TEXT = "text/plain; charset=utf-8"
 HTML = "text/html; charset=utf-8"
 NO_CACHE = "no-store"
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+}
 
 
 @dataclass(frozen=True)
@@ -28,7 +34,7 @@ class PortalConfig:
 
 def api_route(path, config):
     if path == "/api/health":
-        return 200, f"app-01_bko OK ({config.local_ip})"
+        return 200, "app-01_bko OK"
     if config.diagnostics and path == "/api/error":
         return 500, "Erreur applicative volontaire du TP"
     if config.diagnostics and path == "/api/flow-test":
@@ -95,6 +101,9 @@ def make_server(address, config):
     is_app = config.local_ip == config.app_ip
 
     class Handler(BaseHTTPRequestHandler):
+        def version_string(self):
+            return "LemanPortal"
+
         def do_HEAD(self):
             self.do_GET()
 
@@ -114,7 +123,8 @@ def make_server(address, config):
             if not is_app and path == "/":
                 self.send_header("Vary", "Accept")
             self.send_header("Content-Length", str(len(content)))
-            self.send_header("X-Content-Type-Options", "nosniff")
+            for header, value in SECURITY_HEADERS.items():
+                self.send_header(header, value)
             self.end_headers()
             if self.command == "GET":
                 self.wfile.write(content)

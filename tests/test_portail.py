@@ -48,13 +48,15 @@ class PortalTest(unittest.TestCase):
     def test_app_health(self):
         status, headers, body = self.request(APP, "/api/health")
         self.assertEqual(status, 200)
-        self.assertIn(b"app-01_bko OK", body)
+        self.assertEqual(body, b"app-01_bko OK\n")
+        self.assertEqual(headers["Server"], "LemanPortal")
         self.assertEqual(headers["Cache-Control"], "no-store")
 
     def test_web_browser_representation(self):
         status, headers, body = self.request(WEB, "/", request_headers={"Accept": "text/html, */*"})
         self.assertEqual((status, headers["Vary"]), (200, "Accept"))
         self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+        self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
         self.assertIn(b'<html lang="fr">', body)
         self.assertIn(b'<a href="/api/health">', body)
         for disabled in ("text/html;q=0", "text/html;q=incorrect"):

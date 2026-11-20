@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 from app.portail import (
     LOGO,
     NO_CACHE,
+    SECURITY_HEADERS,
     TEXT,
     PortalConfig,
     api_route,
@@ -37,9 +38,9 @@ def handler(event, _context):
         if binary:
             body = base64.b64encode(LOGO).decode("ascii")
     headers = {
+        **SECURITY_HEADERS,
         "Content-Type": media_type,
         "Cache-Control": "public, max-age=86400" if image else NO_CACHE,
-        "X-Content-Type-Options": "nosniff",
     }
     if status == 200 and path == "/":
         request_headers = {key.lower(): value for key, value in (event.get("headers") or {}).items()}
