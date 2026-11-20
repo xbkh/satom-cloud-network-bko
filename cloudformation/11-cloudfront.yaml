@@ -57,7 +57,7 @@ Resources:
           TargetOriginId: portail-alb
           ViewerProtocolPolicy: redirect-to-https
           CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
-          OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
+          OriginRequestPolicyId: !If [OriginOverride, b689b0a8-53d0-40ab-baf2-68738e2966ac, 216adef6-5c7f-47e4-b989-5492eafa07d3]
         CacheBehaviors:
           - PathPattern: '/static/*'
             TargetOriginId: portail-alb
@@ -68,7 +68,7 @@ Resources:
             TargetOriginId: portail-alb
             ViewerProtocolPolicy: redirect-to-https
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
-            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
+            OriginRequestPolicyId: !If [OriginOverride, b689b0a8-53d0-40ab-baf2-68738e2966ac, 216adef6-5c7f-47e4-b989-5492eafa07d3]
             AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
             CachedMethods: [GET, HEAD]
         CustomErrorResponses:

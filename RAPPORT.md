@@ -116,6 +116,12 @@ On a créé la stack réseau depuis le YAML, puis relu une **change set**, la li
 
 Les tests du domaine public réel supposent une délégation DNS valide. Pour le parcours HTTPS de bout en bout, le certificat de l’origine ALB couvre son nom réel, et celui de la distribution pour l’alias est installé dans `us-east-1`.
 
+### Démonstration sur un vrai domaine
+
+Le [template de zone déléguée](cloudformation/10-zone-deleguee.yaml) crée une zone Route 53 pour le seul sous-domaine du portail. Dans la zone parente, ajouter sur ce sous-domaine les quatre serveurs `NameServers` renvoyés par la stack. Avec `PortalTarget=cloudfront`, un alias dirige le portail vers CloudFront et un deuxième alias dirige le nom `origine` vers l’ALB.
+
+Le [template du certificat régional](cloudformation/demo-certificat.yaml) valide en DNS le nom d’origine. Le certificat du portail est demandé dans ACM en `us-east-1`, puis son enregistrement de validation est déclaré dans la zone déléguée. Le portail public utilise `LabDiagnostics=false` pour désactiver les routes de test qui provoquent des erreurs ou génèrent du trafic de diagnostic. L’ALB autorise sur 443 uniquement le préfixe d’origine CloudFront et vérifie l’en-tête configuré dans les deux stacks.
+
 ## Périmètre des coûts
 
 Le lab a été exécuté sur un compte de formation partagé. Le cahier fixe une enveloppe de 150 CHF et une alerte à 80 %. Aucun budget `bko` n’était visible. L’API de facturation a refusé l’accès aux tags d’allocation depuis ce compte membre. Le seuil et les coûts exacts de l’équipe restent donc à confirmer côté compte de gestion. Le portail a été recréé une fois, testé, puis supprimé. Les stacks DNS, CloudFront et supervision du lab et le certificat de test ont aussi été retirés. Les instances des modules initiaux sont arrêtées. La passerelle NAT et les attachements de référence restent en place et peuvent continuer à générer des frais. [Tags d’allocation AWS](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/activating-tags.html)

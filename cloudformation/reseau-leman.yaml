@@ -30,6 +30,10 @@ Parameters:
     Type: String
     Default: 'false'
     AllowedValues: ['true', 'false']
+  LabDiagnostics:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
   WebBackup:
     Type: String
     Default: 'true'
@@ -43,6 +47,10 @@ Parameters:
   CertificateArn:
     Type: String
     Default: ''
+  HttpsOnly:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
   OriginPrefixListId:
     Type: String
     Default: ''
@@ -59,7 +67,9 @@ Conditions:
   Backup: !And [!Condition Portal, !Equals [!Ref WebBackup, 'true']]
   Tls: !And [!Condition Portal, !Not [!Equals [!Ref CertificateArn, '']]]
   OriginLocked: !Not [!Equals [!Ref OriginPrefixListId, '']]
-  AllowHttp: !Or [!Not [!Condition OriginLocked], !Not [!Condition Tls]]
+  AllowHttp: !And
+    - !Equals [!Ref HttpsOnly, 'false']
+    - !Or [!Not [!Condition OriginLocked], !Not [!Condition Tls]]
   HttpActive: !And [!Condition Portal, !Condition AllowHttp]
   RequireOriginHeader: !Not [!Equals [!Ref OriginHeader, '']]
   DriftRule: !Equals [!Ref DiagnosticRule, 'true']
@@ -177,6 +187,7 @@ Resources:
 
             local_ip = socket.gethostbyname(socket.gethostname())
             is_app = local_ip == "${AppIp}"
+            lab_diagnostics = "${LabDiagnostics}" == "true"
 
             class Handler(BaseHTTPRequestHandler):
                 def do_HEAD(self):
@@ -187,9 +198,9 @@ Resources:
                     if is_app:
                         if path == "/api/health":
                             status, body = 200, f"app-01_bko OK ({local_ip})"
-                        elif path == "/api/error":
+                        elif lab_diagnostics and path == "/api/error":
                             status, body = 500, "Erreur applicative volontaire du TP"
-                        elif path == "/api/flow-test":
+                        elif lab_diagnostics and path == "/api/flow-test":
                             try:
                                 with socket.create_connection(("${WebIp}", 22), timeout=2):
                                     status, body = 200, "Connexion inattendue sur 22"
@@ -209,7 +220,7 @@ Resources:
                         return
                     elif path == "/health":
                         status, body = 200, "healthy"
-                    elif path == "/dns-test":
+                    elif lab_diagnostics and path == "/dns-test":
                         try:
                             result = socket.gethostbyname("app.prod.leman.internal")
                             status, body = 200, f"app.prod.leman.internal = {result}"

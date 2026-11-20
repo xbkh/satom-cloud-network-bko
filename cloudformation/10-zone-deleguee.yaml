@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Zone publique dédiée à la démonstration Léman Finance.
+Parameters:
+  PortalDomain:
+    Type: String
+    Description: Sous-domaine délégué depuis la zone parente.
+  AlbDns:
+    Type: String
+    Default: ''
+  AlbZone:
+    Type: String
+    Default: ''
+  CloudFrontDns:
+    Type: String
+    Default: ''
+  PortalTarget:
+    Type: String
+    Default: cloudfront
+    AllowedValues: [alb, cloudfront]
+  ViewerValidationName:
+    Type: String
+    Default: ''
+  ViewerValidationValue:
+    Type: String
+    Default: ''
+Conditions:
+  HasAlb: !Not [!Equals [!Ref AlbDns, '']]
+  HasCloudFront: !Not [!Equals [!Ref CloudFrontDns, '']]
+  DirectAlb: !Equals [!Ref PortalTarget, alb]
+  PublishOrigin: !And [!Condition HasAlb, !Not [!Condition DirectAlb]]
+  PublishPortal: !Or
+    - !And [!Condition DirectAlb, !Condition HasAlb]
+    - !And [!Not [!Condition DirectAlb], !Condition HasCloudFront]
+  HasViewerValidation: !And
+    - !Not [!Equals [!Ref ViewerValidationName, '']]
+    - !Not [!Equals [!Ref ViewerValidationValue, '']]
+Resources:
+  Zone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Ref PortalDomain
+      HostedZoneConfig:
+        Comment: Démonstration Léman Finance bko
+      HostedZoneTags:
+        - {Key: Projet, Value: SatomCloudNetwork}
+        - {Key: Equipe, Value: bko}
+  ViewerValidation:
+    Type: AWS::Route53::RecordSet
+    Condition: HasViewerValidation
+    Properties:
+      HostedZoneId: !Ref Zone
+      Name: !Ref ViewerValidationName
+      Type: CNAME
+      TTL: '300'
+      ResourceRecords: [!Ref ViewerValidationValue]
+  Origin:
+    Type: AWS::Route53::RecordSet
+    Condition: PublishOrigin
+    Properties:
+      HostedZoneId: !Ref Zone
+      Name: !Sub 'origine.${PortalDomain}.'
+      Type: A
+      AliasTarget:
+        DNSName: !Ref AlbDns
+        HostedZoneId: !Ref AlbZone
+        EvaluateTargetHealth: false
+  Portal:
+    Type: AWS::Route53::RecordSet
+    Condition: PublishPortal
+    Properties:
+      HostedZoneId: !Ref Zone
+      Name: !Sub '${PortalDomain}.'
+      Type: A
+      AliasTarget:
+        DNSName: !If [DirectAlb, !Ref AlbDns, !Ref CloudFrontDns]
+        HostedZoneId: !If [DirectAlb, !Ref AlbZone, Z2FDTNDATAQYW2]
+        EvaluateTargetHealth: false
+Outputs:
+  HostedZoneId: {Value: !Ref Zone}
+  NameServers: {Value: !Join [',', !GetAtt Zone.NameServers]}
