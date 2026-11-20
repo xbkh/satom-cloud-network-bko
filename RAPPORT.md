@@ -118,13 +118,17 @@ Les tests du domaine public réel supposent une délégation DNS valide. Pour le
 
 ### Démonstration sur un vrai domaine
 
+Le [portail public](https://portail.bilelk.com/) et son [test API](https://portail.bilelk.com/api/health) ont répondu en HTTPS avec le code 200 le 20 novembre 2026. La page d’accueil donne l’identifiant de la cible web, et l’API répond `app-01_bko OK`. Le fichier statique a également répondu 200 avec le type `image/png`. Ces réponses démontrent le parcours complet du domaine public à l’application privée, via Route 53, CloudFront et l’ALB. Les captures de chaque module documentent les contrôles d’accès, les alertes, les bascules et la recréation de l’infrastructure. [Capture du test public](modules/10-route53/03-portail-public.png)
+
 Le [template de zone déléguée](cloudformation/10-zone-deleguee.yaml) crée une zone Route 53 pour le seul sous-domaine du portail. Dans la zone parente, ajouter sur ce sous-domaine les quatre serveurs `NameServers` renvoyés par la stack. Avec `PortalTarget=cloudfront`, un alias dirige le portail vers CloudFront et un deuxième alias dirige le nom `origine` vers l’ALB.
 
 Le [template du certificat régional](cloudformation/demo-certificat.yaml) valide en DNS le nom d’origine. Le certificat du portail est demandé dans ACM en `us-east-1`, puis son enregistrement de validation est déclaré dans la zone déléguée. Le portail public utilise `LabDiagnostics=false` pour désactiver les routes de test qui provoquent des erreurs ou génèrent du trafic de diagnostic. L’ALB autorise sur 443 uniquement le préfixe d’origine CloudFront et vérifie l’en-tête configuré dans les deux stacks.
 
+Le jour de la mise en ligne, certains résolveurs avaient gardé en cache la réponse qui précédait la création de l’alias public. Après expiration du cache, le portail s’est ouvert avec le domaine personnalisé dans le navigateur.
+
 ## Périmètre des coûts
 
-Le lab a été exécuté sur un compte de formation partagé. Le cahier fixe une enveloppe de 150 CHF et une alerte à 80 %. Aucun budget `bko` n’était visible. L’API de facturation a refusé l’accès aux tags d’allocation depuis ce compte membre. Le seuil et les coûts exacts de l’équipe restent donc à confirmer côté compte de gestion. Le portail a été recréé une fois, testé, puis supprimé. Les stacks DNS, CloudFront et supervision du lab et le certificat de test ont aussi été retirés. Les instances des modules initiaux sont arrêtées. La passerelle NAT et les attachements de référence restent en place et peuvent continuer à générer des frais. [Tags d’allocation AWS](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/activating-tags.html)
+Le lab a été exécuté sur un compte de formation partagé. Le cahier fixe une enveloppe de 150 CHF et une alerte à 80 %. Aucun budget `bko` n’était visible. L’API de facturation a refusé l’accès aux tags d’allocation depuis ce compte membre. Le seuil et les coûts exacts de l’équipe restent donc à confirmer côté compte de gestion. Le portail du lab initial a été recréé, testé, puis supprimé avec ses stacks DNS, CloudFront et supervision. Le certificat de test a aussi été retiré. La démonstration publique est un déploiement séparé qui peut générer des frais pendant son utilisation. Les instances des modules initiaux sont arrêtées. La passerelle NAT et les attachements de référence restent en place et peuvent continuer à générer des frais. [Tags d’allocation AWS](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/activating-tags.html)
 
 ## Sources
 

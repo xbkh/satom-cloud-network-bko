@@ -2,6 +2,8 @@
 
 [Rapport de réalisation · modules 0 à 13 et glossaire](RAPPORT.md)
 
+**Démonstration publique.** Le portail affiche l’identifiant du serveur web et le test de l’API affiche `app-01_bko OK`. [Ouvrir le portail](https://portail.bilelk.com/) · [Tester l’API](https://portail.bilelk.com/api/health) · [Voir les résultats](#démonstration-sur-le-domaine-public)
+
 Projet du cours AWS E3. La région du lab est Stockholm (`eu-north-1`). Les ressources sont définies dans CloudFormation et les changements sont versionnés dans Git.
 
 Les noms de ressources prennent le suffixe `_bko`. Pour les services dont le nom interdit le caractère souligné, utiliser `-bko`, comme pour la stack CloudFormation. Les tags obligatoires du cours gardent leurs valeurs, dont le nom exact de l’équipe.
@@ -688,6 +690,12 @@ Le [template DNS](cloudformation/10-route53.yaml) associe `prod.leman.internal` 
 
 Diagnostic. Vérifier la délégation NS pour un domaine réel, l’enregistrement et la cible de l’alias, l’état du contrôle de santé, puis l’état des cibles de l’ALB.
 
+### Démonstration sur le domaine public
+
+Le sous-domaine `portail.bilelk.com` est délégué depuis Infomaniak à une zone Route 53 dédiée. L’alias public pointe vers CloudFront, qui joint l’ALB en HTTPS. Le 20 novembre 2026, la page d’accueil, `/api/health` et le fichier `/static/logo.png` ont répondu avec le code 200. [Configuration et portée des tests](RAPPORT.md#démonstration-sur-un-vrai-domaine)
+
+![Vérification HTTPS de la page web, de l’API et du fichier statique sur le domaine public](modules/10-route53/03-portail-public.png)
+
 ## Module 11 · CloudFront
 
 Le [template CloudFront](cloudformation/11-cloudfront.yaml) utilise le nom et le certificat AWS de la distribution pour le lab. La connexion utilisateur est en HTTPS. L’origine ALB utilise HTTP dans cet essai, car CloudFront exige un certificat reconnu pour une origine HTTPS. Pour un vrai domaine, le template permet de renseigner un certificat ACM en `us-east-1` pour l’alias public, et une origine HTTPS avec un certificat valide pour son nom.
@@ -752,6 +760,6 @@ Le [template final en YAML](cloudformation/reseau-leman.yaml) commence par une s
 
 Diagnostic. Lire l’état de la stack, examiner le premier événement en échec, vérifier les écarts avec le template, puis traiter la cause avant une nouvelle exécution ou un rollback.
 
-**Bilan du nettoyage.** Les stacks DNS, CloudFront, supervision et portail du lab sont supprimées. Le certificat auto-signé importé dans ACM a été retiré après le dernier essai. Les stacks de référence des premiers modules sont toujours présentes. Le NAT, les attachements Transit Gateway, certaines adresses publiques et les volumes des instances arrêtées peuvent continuer à générer des frais.
+**Bilan du nettoyage.** Les stacks DNS, CloudFront, supervision et portail du lab initial ont été supprimées, avec le certificat auto-signé du lab. La démonstration publique utilise un déploiement dédié et peut générer des frais tant qu’il est actif. Les stacks de référence des premiers modules sont toujours présentes. Le NAT, les attachements Transit Gateway, certaines adresses publiques et les volumes des instances arrêtées peuvent continuer à générer des frais.
 
 ![Vérification du retrait final et liste des stacks de référence](modules/13-cloudformation/05-nettoyage.png)
