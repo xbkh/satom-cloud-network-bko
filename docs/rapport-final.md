@@ -79,6 +79,8 @@ de l’API et de la route de diagnostic. AWS a passé environ vingt minutes
 à libérer les interfaces réseau de la sonde. Un RPO métier demande un
 scénario avec des données persistantes à restaurer. Ce portail de test
 sert uniquement des réponses générées et une image.
+Les deux stacks temporaires ont été supprimées après l’essai. Le
+portail public répondait toujours en HTTPS lors du contrôle suivant.
 
 ## Écarts à la validation finale
 

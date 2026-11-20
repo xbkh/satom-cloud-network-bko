@@ -50,6 +50,10 @@ La preuve de reprise donne les heures de départ et de retour du service, ainsi 
 
 ![Le terminal montre le résultat du chronométrage de reprise](preuves/reprise-dev.png)
 
+CloudFormation a confirmé la suppression des deux stacks temporaires après le test. La sonde ne laisse aucune interface réseau et le portail public répondait en HTTPS lors du contrôle suivant. [Résultat du nettoyage](preuves/nettoyage-dev.json)
+
+![Le terminal montre les deux stacks supprimées et le code 200 de l’API publique](preuves/nettoyage-dev.png)
+
 ## Séquence de démonstration
 
 1. **0 à 3 min.** Ouvrir la page d’accueil, `/api/health` et l’image sur le [portail](https://portail.bilelk.com/).
